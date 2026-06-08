@@ -50,8 +50,9 @@ http_code() {
   echo "$code"
 }
 
-bytes_to_gb() {
-  awk -v b="$1" 'BEGIN { printf "%.1f", b/1024/1024/1024 }'
+# /proc/meminfo and df -k report kilobytes (1K blocks), not bytes.
+kb_to_gb() {
+  awk -v kb="${1:-0}" 'BEGIN { printf "%.1f", kb/1024/1024 }'
 }
 
 echo ""
@@ -84,8 +85,8 @@ else
 fi
 
 MEM_KB=$(awk '/MemTotal:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)
-MEM_GB=$(bytes_to_gb "$MEM_KB")
-MEM_GB_INT=${MEM_GB%.*}
+MEM_GB=$(kb_to_gb "$MEM_KB")
+MEM_GB_INT=$(awk -v g="$MEM_GB" 'BEGIN { print int(g+0.5) }')
 if [ "${MEM_GB_INT:-0}" -ge 8 ]; then
   pass "RAM: ${MEM_GB} GB (>= 8 GB recommended)"
 elif [ "${MEM_GB_INT:-0}" -ge 4 ]; then
@@ -95,8 +96,8 @@ else
 fi
 
 DISK_AVAIL_KB=$(df -k / 2>/dev/null | awk 'NR==2 {print $4}')
-DISK_AVAIL_GB=$(bytes_to_gb "$DISK_AVAIL_KB")
-DISK_AVAIL_INT=${DISK_AVAIL_GB%.*}
+DISK_AVAIL_GB=$(kb_to_gb "$DISK_AVAIL_KB")
+DISK_AVAIL_INT=$(awk -v g="$DISK_AVAIL_GB" 'BEGIN { print int(g+0.5) }')
 if [ "${DISK_AVAIL_INT:-0}" -ge 40 ]; then
   pass "Disk free on /: ${DISK_AVAIL_GB} GB (>= 40 GB)"
 elif [ "${DISK_AVAIL_INT:-0}" -ge 20 ]; then
@@ -191,21 +192,24 @@ if command -v aws >/dev/null 2>&1; then
     info "Sample models:"
     echo "$MODELS" | tr '\t' '\n' | head -8 | sed 's/^/        /'
   elif echo "$MODELS" | grep -qi 'AccessDenied'; then
-    fail "Bedrock list denied — add bedrock:ListFoundationModels or bedrock:InvokeModel to IAM role"
-    info "$MODELS"
+    warn "Bedrock list-foundation-models denied (OK if bedrock:InvokeModel works)"
+    info "Ask IT for bedrock:InvokeModel on Genomics-Research-Role"
   else
     warn "Bedrock list returned unexpected result"
     info "$MODELS"
   fi
 
   TMP_EMBED="/tmp/scinova-bedrock-embed-$$.json"
+  TMP_BODY="/tmp/scinova-bedrock-body-$$.json"
+  printf '%s' '{"inputText":"SciNova preflight test","normalize":true}' > "$TMP_BODY"
   EMBED_ERR=$(aws bedrock-runtime invoke-model \
     --region "$AWS_REGION" \
     --model-id "$BEDROCK_EMBED_MODEL" \
     --content-type application/json \
     --accept application/json \
-    --body '{"inputText":"SciNova preflight test","normalize":true}' \
+    --body "fileb://${TMP_BODY}" \
     "$TMP_EMBED" 2>&1) || true
+  rm -f "$TMP_BODY"
 
   if [ -f "$TMP_EMBED" ] && grep -q '"embedding"' "$TMP_EMBED" 2>/dev/null; then
     DIM=$(python3 -c "import json; print(len(json.load(open('$TMP_EMBED'))['embedding']))" 2>/dev/null || echo "?")
@@ -214,7 +218,11 @@ if command -v aws >/dev/null 2>&1; then
   else
     fail "Bedrock embed invoke failed ($BEDROCK_EMBED_MODEL)"
     info "$EMBED_ERR"
-    info "Enable model in Bedrock console → Model access → $AWS_REGION"
+    if echo "$EMBED_ERR" | grep -qi 'AccessDenied'; then
+      info "Ask IT: bedrock:InvokeModel on Genomics-Research-Role"
+    else
+      info "Enable model in Bedrock console → Model access → $AWS_REGION"
+    fi
     rm -f "$TMP_EMBED"
   fi
 else
@@ -233,15 +241,19 @@ if command -v docker >/dev/null 2>&1; then
   fi
 
   if groups | grep -q docker || [ "$(id -u)" -eq 0 ]; then
-    pass "User can run docker"
+    pass "User can run docker (no sudo)"
   else
-    warn "User not in 'docker' group — run: sudo usermod -aG docker $USER && re-login"
+    warn "User not in 'docker' group — fix below, then open a NEW SSM session"
+    info "sudo usermod -aG docker ubuntu && exit  # re-connect SSM as ubuntu"
   fi
 
   if docker info >/dev/null 2>&1; then
     pass "Docker daemon responding"
+  elif sudo docker info >/dev/null 2>&1; then
+    warn "Docker works with sudo only — add user to docker group and re-login"
   else
-    fail "Docker daemon not running or permission denied"
+    fail "Docker daemon not running"
+    info "sudo systemctl start docker && sudo systemctl enable docker"
   fi
 else
   warn "Docker not installed"
