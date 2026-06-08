@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+backend/venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Environment
+.env
+*.env.local
+
+# Database
+*.db
+backend/scinova.db
+
+# Storage
+backend/storage/uploads/*
+!backend/storage/uploads/.gitkeep
+backend/storage/chroma/
+
+# Secrets
+*.pem
+.env.*
+!.env.example
+
+# Build
+frontend/dist/
+*.egg-info/
+
+# IDE
+.DS_Store
+.idea/
+.vscode/

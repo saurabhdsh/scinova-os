@@ -1,0 +1,12 @@
+JAK1 inhibitor efficacy in rheumatoid arthritis Phase II study
+
+Abstract: This study evaluates SN-2847, a selective JAK1 inhibitor, in patients with Rheumatoid Arthritis.
+The JAK-STAT pathway is critically involved in inflammatory signaling. PD-L1 and CRP were measured as biomarkers.
+
+Results: Compound SN-2847 showed IC50 of 12nM against JAK1. hERG IC50 was within acceptable limits.
+LogP was 2.4. Phase II results demonstrated significant efficacy versus placebo.
+
+The EGFR Signaling pathway was assessed as off-target. GSE198234 omics data supports JAK1 as a validated target.
+ICH M7(R2) compliance was verified for mutagenic impurities.
+
+Conclusion: SN-2847 represents a promising lead for Rheumatoid Arthritis with favorable ADMET profile.
