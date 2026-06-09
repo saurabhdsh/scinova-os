@@ -39,8 +39,6 @@ def _resolve_inference_model(routing) -> str:
     selected = routing.selected_model or settings.llm_model
     if selected.startswith("scinova/"):
         return settings.slm_model
-    if selected.startswith("gpt-"):
-        return settings.llm_model
     return settings.llm_model
 
 

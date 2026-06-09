@@ -4,6 +4,7 @@ import GlassPanel from '../components/ui/GlassPanel';
 import {
   getFullGraph, searchGraph, getNeighborhood, getGraphStats, getDocuments, syncGraphToNeo4j,
 } from '../api/client';
+import { useProject } from '../context/ProjectContext';
 
 const KnowledgeGraph3D = lazy(() => import('../components/graph/KnowledgeGraph3D'));
 
@@ -14,6 +15,7 @@ const SOURCE_OPTIONS = [
 ];
 
 export default function KnowledgeGraph() {
+  const { activeProject, activeProjectId } = useProject();
   const [graphNodes, setGraphNodes] = useState([]);
   const [graphRelationships, setGraphRelationships] = useState([]);
   const [search, setSearch] = useState('');
@@ -114,7 +116,7 @@ export default function KnowledgeGraph() {
 
   useEffect(() => {
     loadGraph();
-  }, [graphSource, liveOnly, documentId]);
+  }, [graphSource, liveOnly, documentId, activeProjectId]);
 
   const handleSearch = async () => {
     setLoading(true);
@@ -185,6 +187,11 @@ export default function KnowledgeGraph() {
       <GlassPanel hero className="shrink-0">
         <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim">Evidence</p>
         <h2 className="font-display text-xl font-semibold mt-1">Knowledge Graph Explorer</h2>
+        {activeProject ? (
+          <p className="text-xs text-cx-accent mt-1">Scoped to project: {activeProject.name}</p>
+        ) : (
+          <p className="text-xs text-cx-fgMuted mt-1">Showing all workspaces you can access</p>
+        )}
         {stats && (
           <div className="mt-3 flex flex-wrap gap-4 text-xs text-cx-fgMuted">
             <span className="flex items-center gap-1">

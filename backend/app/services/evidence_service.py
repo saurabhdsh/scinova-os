@@ -21,6 +21,7 @@ def gather_evidence(
     document_id: str | None = None,
     document_ids: list[str] | None = None,
     user_id: str | None = None,
+    project_id: str | None = None,
     top_k: int = 8,
     include_pubmed: bool = True,
     include_kegg: bool = True,
@@ -94,7 +95,8 @@ def gather_evidence(
         or not tools
     ):
         graph = search_graph(
-            db, q=query, document_id=document_id, limit=12, user_id=user_id,
+            db, q=query, document_id=document_id, limit=12,
+            user_id=user_id, project_id=project_id,
         )
         kg_entities = [
             {"id": n.id, "name": n.label, "type": n.node_type, "entity_id": n.entity_id}

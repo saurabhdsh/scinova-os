@@ -57,6 +57,7 @@ def run_hypothesis_agent(
         document_id=document_id,
         document_ids=input_data.get("document_ids"),
         user_id=input_data.get("user_id"),
+        project_id=input_data.get("project_id"),
         top_k=top_k,
     )
     logs.extend(evidence["logs"])

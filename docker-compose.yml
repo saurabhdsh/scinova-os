@@ -71,7 +71,7 @@ services:
       CHROMA_HOST: chromadb
       CHROMA_PORT: 8000
       CHROMA_USE_HTTP: "true"
-      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
       QUOTA_MAX_UPLOADS: "2"
       QUOTA_MAX_WORKFLOWS: "2"
       SECRET_KEY: ${SECRET_KEY:-scinova-dev-secret-change-in-production}
@@ -127,6 +127,7 @@ services:
       - "5173:5173"
     environment:
       VITE_API_PROXY_TARGET: http://backend:8000
+      VITE_ALLOW_ALL_HOSTS: ${VITE_ALLOW_ALL_HOSTS:-true}
     depends_on:
       - backend
     volumes:

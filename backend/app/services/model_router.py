@@ -2,6 +2,7 @@
 
 from app.config import settings
 from app.models.schemas import ModelRouteRequest, ModelRoutingDecision
+from app.services.llm_service import is_bedrock_llm_model
 
 # Logical SLM profile names → resolved at inference to settings.slm_model (Ministral 8B)
 SLM_MODELS = {
@@ -13,8 +14,16 @@ SLM_MODELS = {
     "molecular-intelligence-slm": settings.slm_model,
 }
 
-FRONTIER_MODEL = "gpt-4o"
-FRONTIER_FALLBACK = "gpt-4o-mini"
+def _frontier_model() -> str:
+    return settings.llm_model
+
+
+def _frontier_fallback() -> str:
+    if settings.llm_fallback_model:
+        return settings.llm_fallback_model
+    if is_bedrock_llm_model(settings.llm_model):
+        return settings.bedrock_llm_model or settings.llm_model
+    return "gpt-4o-mini"
 
 LOW_RISK_TASKS = {
     "summarization", "extraction", "classification", "mapping",
@@ -34,9 +43,9 @@ def route_model(request: ModelRouteRequest) -> ModelRoutingDecision:
     # High risk always uses frontier + human review
     if risk == "high":
         return ModelRoutingDecision(
-            selected_model=FRONTIER_MODEL,
+            selected_model=_frontier_model(),
             reason_for_selection="High-risk task requires frontier LLM with human review checkpoint.",
-            fallback_model=FRONTIER_FALLBACK,
+            fallback_model=_frontier_fallback(),
             human_review_required=True,
             model_type="frontier",
         )
@@ -45,9 +54,9 @@ def route_model(request: ModelRouteRequest) -> ModelRoutingDecision:
     complex_keywords = ["hypothesis", "validation", "decision", "design", "generation", "review", "assessment"]
     if any(kw in task_lower or kw in agent_lower for kw in complex_keywords):
         return ModelRoutingDecision(
-            selected_model=FRONTIER_MODEL,
+            selected_model=_frontier_model(),
             reason_for_selection="Complex reasoning or scientific decision task routed to frontier LLM.",
-            fallback_model=FRONTIER_FALLBACK,
+            fallback_model=_frontier_fallback(),
             human_review_required=human_review,
             model_type="frontier",
         )
@@ -58,16 +67,16 @@ def route_model(request: ModelRouteRequest) -> ModelRoutingDecision:
         return ModelRoutingDecision(
             selected_model=slm,
             reason_for_selection="Repetitive, domain-specific, low-risk task routed to specialized SLM.",
-            fallback_model=FRONTIER_FALLBACK,
+            fallback_model=_frontier_fallback(),
             human_review_required=False,
             model_type="slm",
         )
 
     # Medium risk default
     return ModelRoutingDecision(
-        selected_model=FRONTIER_MODEL,
+        selected_model=_frontier_model(),
         reason_for_selection="Medium-risk task with mixed complexity routed to frontier LLM.",
-        fallback_model=FRONTIER_FALLBACK,
+        fallback_model=_frontier_fallback(),
         human_review_required=human_review,
         model_type="frontier",
     )

@@ -87,11 +87,29 @@ def get_dashboard_stats(
     doc_q = ws.document_query_for_user(db, current_user.id, project_id)
     entity_q = ws.entity_query_for_user(db, current_user.id, project_id)
     wf_q = ws.workflow_query_for_user(db, current_user.id, project_id)
+    entity_ids = [r[0] for r in entity_q.with_entities(ScientificEntity.id).all()]
+    scoped_node_ids = (
+        {
+            row[0]
+            for row in db.query(GraphNode.id).filter(GraphNode.entity_id.in_(entity_ids)).all()
+        }
+        if entity_ids
+        else set()
+    )
+    graph_nodes = len(scoped_node_ids)
+    graph_relationships = (
+        db.query(GraphRelationship).filter(
+            GraphRelationship.source_node_id.in_(scoped_node_ids),
+            GraphRelationship.target_node_id.in_(scoped_node_ids),
+        ).count()
+        if scoped_node_ids
+        else 0
+    )
     return DashboardStats(
         total_documents=doc_q.count(),
         total_entities=entity_q.count(),
-        graph_nodes=db.query(GraphNode).count(),
-        graph_relationships=db.query(GraphRelationship).count(),
+        graph_nodes=graph_nodes,
+        graph_relationships=graph_relationships,
         active_agents=db.query(Agent).filter(Agent.status == "ready").count(),
         completed_workflows=wf_q.filter(WorkflowRun.status == "completed").count(),
         avg_time_saved_hours=6.2,
@@ -483,6 +501,7 @@ def search_graph_route(
     return graph_service.search_graph(
         db, q=q, entity_type=entity_type, document_id=document_id,
         live_only=live_only, source=source, user_id=current_user.id,
+        project_id=project_id,
     )
 
 
@@ -553,6 +572,7 @@ def get_neighborhood_route(
     ws.assert_graph_access(db, current_user.id, entity_id, project_id)
     result = graph_service.get_neighborhood(
         db, entity_id, source=source, depth=depth, user_id=current_user.id,
+        project_id=project_id,
     )
     if not result:
         raise HTTPException(404, "Node not found")
@@ -573,7 +593,7 @@ def get_full_graph_route(
         ws.assert_document_in_workspace(db, current_user.id, document_id, project_id)
     return graph_service.get_full_graph(
         db, limit=limit, document_id=document_id, live_only=live_only, source=source,
-        user_id=current_user.id,
+        user_id=current_user.id, project_id=project_id,
     )
 
 

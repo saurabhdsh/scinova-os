@@ -109,7 +109,13 @@ def get_collaboration_activity(db: Session, user_id: str, *, limit: int = 25, pr
             for r in recent_agents
         ],
         "open_risks": [
-            {"id": r.id, "title": r.title, "severity": r.severity, "category": r.category}
+            {
+                "id": r.id,
+                "title": r.title,
+                "description": r.description,
+                "severity": r.severity,
+                "category": r.category,
+            }
             for r in open_risks
         ],
         "recent_documents": _recent_documents(db, user_id, since, project_id=project_id),

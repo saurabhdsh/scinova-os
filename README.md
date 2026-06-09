@@ -59,9 +59,16 @@ npm run dev
 
 ```bash
 cp .env.example .env
-docker-compose up -d postgres neo4j chromadb
-# Then run backend/frontend locally, or:
-docker-compose up backend
+docker compose up -d
+```
+
+### Option 4: Azure VM (personal account)
+
+See **[AZURE.md](./AZURE.md)** for portal VM setup, NSG rules, and:
+
+```bash
+./scripts/deploy-azure.sh
+./scripts/preflight-azure.sh
 ```
 
 ## API Documentation

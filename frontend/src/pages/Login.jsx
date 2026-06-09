@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GitBranch, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import SciNovaLogo from '../components/brand/SciNovaLogo';
 import { login } from '../api/client';
 import { saveCurrentUser } from '../lib/auth';
 
@@ -36,13 +37,10 @@ export default function Login() {
     <div className="min-h-full flex items-center justify-center p-6 grid-bg">
       <div className="glass-panel-hero w-full max-w-md p-8">
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cx-accent/20 to-cx-accent2/20 border border-cx-accent/30 flex items-center justify-center">
-            <GitBranch className="text-cx-accent" size={24} />
-          </div>
+          <SciNovaLogo size={48} />
           <div>
             <h1 className="font-display text-xl font-semibold">SciNova OS</h1>
             <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim">SciFabric AgentOS</p>
-            <p className="text-2xs text-cx-fgMuted mt-1">Tata Consultancy Services</p>
           </div>
         </div>
 
@@ -81,6 +79,9 @@ export default function Login() {
 
         <p className="mt-6 text-xs text-cx-fgDim text-center">
           Contact your administrator for login credentials.
+        </p>
+        <p className="mt-3 text-2xs text-cx-fgMuted text-center tracking-wide">
+          Tata Consultancy Services
         </p>
       </div>
     </div>

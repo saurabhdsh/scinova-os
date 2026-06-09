@@ -41,7 +41,11 @@ class Settings(BaseSettings):
     aws_secret_access_key: str = ""
     aws_session_token: str = ""
     bedrock_embedding_model: str = "amazon.titan-embed-text-v2:0"
+    # Frontier LLM: OpenAI model id (gpt-*) or Bedrock Anthropic id (anthropic.*)
     llm_model: str = "gpt-4o-mini"
+    llm_fallback_model: str = ""
+    bedrock_llm_model: str = ""
+    llm_max_tokens: int = 4096
     mistral_api_key: str = ""
     mistral_base_url: str = "https://api.mistral.ai/v1"
     slm_model: str = "ministral-8b-latest"

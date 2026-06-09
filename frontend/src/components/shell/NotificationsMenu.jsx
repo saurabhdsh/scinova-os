@@ -17,10 +17,12 @@ export default function NotificationsMenu({ open, onClose, onCountChange }) {
   const panelRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [activity, setActivity] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [acting, setActing] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError('');
     try {
       const r = await getCollaborationActivity();
       setActivity(r.data);
@@ -28,6 +30,7 @@ export default function NotificationsMenu({ open, onClose, onCountChange }) {
       onCountChange?.(count);
     } catch {
       setActivity(null);
+      setLoadError('Could not load notifications. Check your connection and try again.');
       onCountChange?.(0);
     } finally {
       setLoading(false);
@@ -75,7 +78,7 @@ export default function NotificationsMenu({ open, onClose, onCountChange }) {
   const approvals = activity?.pending_approvals || [];
   const recentWorkflows = (activity?.recent_workflows || []).slice(0, 3);
   const recentDocs = (activity?.recent_documents || []).slice(0, 3);
-  const empty = !loading && risks.length === 0 && approvals.length === 0
+  const empty = !loading && !loadError && risks.length === 0 && approvals.length === 0
     && recentWorkflows.length === 0 && recentDocs.length === 0;
 
   return (
@@ -102,6 +105,20 @@ export default function NotificationsMenu({ open, onClose, onCountChange }) {
           <div className="flex items-center justify-center py-8 text-cx-fgMuted">
             <Loader2 size={18} className="animate-spin mr-2" />
             Loading…
+          </div>
+        )}
+
+        {loadError && (
+          <div className="py-6 text-center px-2">
+            <AlertTriangle size={24} className="mx-auto text-cx-warn mb-2" />
+            <p className="text-sm text-cx-fgMuted">{loadError}</p>
+            <button
+              type="button"
+              onClick={load}
+              className="mt-3 text-2xs text-cx-accent hover:underline"
+            >
+              Retry
+            </button>
           </div>
         )}
 

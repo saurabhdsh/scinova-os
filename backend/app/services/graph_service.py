@@ -11,24 +11,58 @@ from app.services.neo4j_client import neo4j_client
 from app.services.workspace import document_ids_for_user
 
 
-def _user_graph_node_ids(db: Session, user_id: str, document_id: str | None = None) -> set[str]:
-    doc_ids = document_ids_for_user(db, user_id)
+def _entity_ids_for_scope(
+    db: Session,
+    user_id: str,
+    document_id: str | None = None,
+    project_id: str | None = None,
+) -> list[str]:
+    doc_ids = document_ids_for_user(db, user_id, project_id)
     if document_id:
         doc_ids = [document_id] if document_id in doc_ids else []
     if not doc_ids:
-        return set()
-    entity_ids = [
+        return []
+    return [
         row[0]
         for row in db.query(ScientificEntity.id).filter(
             ScientificEntity.source_document_id.in_(doc_ids)
         ).all()
     ]
+
+
+def _user_graph_node_ids(
+    db: Session,
+    user_id: str,
+    document_id: str | None = None,
+    project_id: str | None = None,
+) -> set[str]:
+    entity_ids = _entity_ids_for_scope(db, user_id, document_id, project_id)
     if not entity_ids:
         return set()
     return {
         row[0]
         for row in db.query(GraphNode.id).filter(GraphNode.entity_id.in_(entity_ids)).all()
     }
+
+
+def _filter_graph_response(
+    response: GraphSearchResponse,
+    allowed_nodes: set[str] | None,
+) -> GraphSearchResponse:
+    if allowed_nodes is None:
+        return response
+    nodes = [n for n in response.nodes if n.id in allowed_nodes]
+    node_ids = {n.id for n in nodes}
+    rels = [
+        r for r in response.relationships
+        if r.source_node_id in node_ids and r.target_node_id in node_ids
+    ]
+    return GraphSearchResponse(
+        nodes=nodes,
+        relationships=rels,
+        graph_source=response.graph_source,
+        graph_hint=response.graph_hint,
+    )
 
 
 def resolve_graph_source(requested: str = "auto") -> str:
@@ -119,18 +153,24 @@ def _connected_subgraph_sql(
     document_id: str | None = None,
     live_only: bool = False,
     user_id: str | None = None,
+    project_id: str | None = None,
 ) -> GraphSearchResponse:
     """Build a connected subgraph (relationships first) for meaningful visualization."""
     graph_hint = None
     allowed_nodes: set[str] | None = None
     if user_id:
-        allowed_nodes = _user_graph_node_ids(db, user_id, document_id)
+        allowed_nodes = _user_graph_node_ids(db, user_id, document_id, project_id)
         if not allowed_nodes:
+            hint = (
+                "Upload documents to this project to build its knowledge graph."
+                if project_id
+                else "Upload documents to build your knowledge graph."
+            )
             return GraphSearchResponse(
                 nodes=[],
                 relationships=[],
                 graph_source="sql",
-                graph_hint="Upload documents to build your knowledge graph.",
+                graph_hint=hint,
             )
     rel_query = db.query(GraphRelationship)
 
@@ -176,10 +216,12 @@ def _connected_subgraph_sql(
                 limit=limit,
                 document_id=None,
                 live_only=False,
+                user_id=user_id,
+                project_id=project_id,
             )
             if fallback.relationships:
                 fallback.graph_hint = (
-                    "No relationships within this document — showing the full connected knowledge graph."
+                    "No relationships within this document — showing the scoped knowledge graph."
                 )
                 return fallback
             entity_ids = [
@@ -197,7 +239,10 @@ def _connected_subgraph_sql(
                 graph_hint="No relationships found for this document yet.",
             )
 
-        nodes = db.query(GraphNode).order_by(GraphNode.label).limit(min(limit, 24)).all()
+        node_query = db.query(GraphNode).order_by(GraphNode.label)
+        if allowed_nodes is not None:
+            node_query = node_query.filter(GraphNode.id.in_(allowed_nodes))
+        nodes = node_query.limit(min(limit, 24)).all()
         return GraphSearchResponse(
             nodes=[GraphNodeResponse.model_validate(n) for n in nodes],
             relationships=[],
@@ -241,11 +286,28 @@ def search_graph_sql(
     live_only: bool = False,
     limit: int = 80,
     user_id: str | None = None,
+    project_id: str | None = None,
 ) -> GraphSearchResponse:
     q = (q or "").strip()
+    allowed_nodes: set[str] | None = None
+    if user_id:
+        allowed_nodes = _user_graph_node_ids(db, user_id, document_id, project_id)
+        if not allowed_nodes:
+            hint = (
+                "Upload documents to this project to build its knowledge graph."
+                if project_id
+                else "Upload documents to build your knowledge graph."
+            )
+            return GraphSearchResponse(nodes=[], relationships=[], graph_source="sql", graph_hint=hint)
+
     if not q and not entity_type:
         return _connected_subgraph_sql(
-            db, limit=limit, document_id=document_id, live_only=live_only, user_id=user_id,
+            db,
+            limit=limit,
+            document_id=document_id,
+            live_only=live_only,
+            user_id=user_id,
+            project_id=project_id,
         )
 
     query = db.query(GraphNode)
@@ -268,6 +330,8 @@ def search_graph_sql(
             query = query.filter(GraphNode.entity_id.in_(entity_ids))
         else:
             return GraphSearchResponse(nodes=[], relationships=[], graph_source="sql")
+    elif user_id and allowed_nodes is not None:
+        query = query.filter(GraphNode.id.in_(allowed_nodes))
 
     nodes = query.order_by(GraphNode.label).limit(limit).all()
     if not nodes:
@@ -280,7 +344,12 @@ def search_graph_sql(
 
     if not rels:
         fallback = _connected_subgraph_sql(
-            db, limit=limit, document_id=document_id, live_only=live_only, user_id=user_id,
+            db,
+            limit=limit,
+            document_id=document_id,
+            live_only=live_only,
+            user_id=user_id,
+            project_id=project_id,
         )
         if fallback.relationships:
             fallback.graph_hint = (
@@ -298,6 +367,8 @@ def search_graph_sql(
         node_ids.add(r.source_node_id)
         node_ids.add(r.target_node_id)
     expanded_nodes = db.query(GraphNode).filter(GraphNode.id.in_(node_ids)).order_by(GraphNode.label).limit(limit).all()
+    if allowed_nodes is not None:
+        expanded_nodes = [n for n in expanded_nodes if n.id in allowed_nodes]
     node_id_set = {n.id for n in expanded_nodes}
     filtered_rels = [
         r for r in rels
@@ -320,8 +391,12 @@ def search_graph(
     source: str = "auto",
     limit: int = 80,
     user_id: str | None = None,
+    project_id: str | None = None,
 ) -> GraphSearchResponse:
     resolved = resolve_graph_source(source)
+    allowed_nodes = (
+        _user_graph_node_ids(db, user_id, document_id, project_id) if user_id else None
+    )
 
     if resolved == "neo4j":
         if live_only and not document_id:
@@ -343,9 +418,13 @@ def search_graph(
                 nodes = [n for n in nodes if n.entity_id in live_entity_ids]
                 node_ids = {n.id for n in nodes}
                 rels = [r for r in rels if r.source_node_id in node_ids and r.target_node_id in node_ids]
-            return GraphSearchResponse(nodes=nodes, relationships=rels, graph_source="neo4j")
+            response = GraphSearchResponse(nodes=nodes, relationships=rels, graph_source="neo4j")
+            return _filter_graph_response(response, allowed_nodes)
 
-    result = search_graph_sql(db, q, entity_type, document_id, live_only, limit=limit, user_id=user_id)
+    result = search_graph_sql(
+        db, q, entity_type, document_id, live_only, limit=limit,
+        user_id=user_id, project_id=project_id,
+    )
     result.graph_source = "sql"
     return result
 
@@ -357,8 +436,12 @@ def get_full_graph(
     live_only: bool = False,
     source: str = "auto",
     user_id: str | None = None,
+    project_id: str | None = None,
 ) -> GraphSearchResponse:
     resolved = resolve_graph_source(source)
+    allowed_nodes = (
+        _user_graph_node_ids(db, user_id, document_id, project_id) if user_id else None
+    )
 
     if resolved == "neo4j":
         neo_result = neo4j_client.search_graph(q="", limit=limit, document_id=document_id)
@@ -368,10 +451,20 @@ def get_full_graph(
             node_ids = {n.id for n in nodes}
             rels = [r for r in rels if r.source_node_id in node_ids and r.target_node_id in node_ids]
             if rels:
-                return GraphSearchResponse(nodes=nodes, relationships=rels, graph_source="neo4j")
+                response = GraphSearchResponse(nodes=nodes, relationships=rels, graph_source="neo4j")
+                filtered = _filter_graph_response(response, allowed_nodes)
+                if filtered.relationships:
+                    return filtered
             # fall through to SQL connected subgraph if neo4j has no edges
 
-    return _connected_subgraph_sql(db, limit=limit, document_id=document_id, live_only=live_only, user_id=user_id)
+    return _connected_subgraph_sql(
+        db,
+        limit=limit,
+        document_id=document_id,
+        live_only=live_only,
+        user_id=user_id,
+        project_id=project_id,
+    )
 
 
 def get_neighborhood(
@@ -380,10 +473,11 @@ def get_neighborhood(
     source: str = "auto",
     depth: int = 2,
     user_id: str | None = None,
+    project_id: str | None = None,
 ) -> GraphNeighborhoodResponse | None:
     resolved = resolve_graph_source(source)
     neo_connected = neo4j_client.connect()
-    allowed_nodes = _user_graph_node_ids(db, user_id) if user_id else None
+    allowed_nodes = _user_graph_node_ids(db, user_id, project_id=project_id) if user_id else None
 
     center_sql = db.query(GraphNode).filter(
         (GraphNode.id == entity_id) | (GraphNode.entity_id == entity_id)

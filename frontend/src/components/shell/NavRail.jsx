@@ -1,10 +1,11 @@
 import { motion } from 'framer-motion';
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, GitBranch, Database, Share2, Bot, Play,
+  LayoutDashboard, Database, Share2, Bot, Play,
   Workflow, Cpu, Shield, FileText, Layers, ChevronLeft, Settings2,
   Users, LogOut, MessageSquare, Wrench,
 } from 'lucide-react';
+import SciNovaLogo from '../brand/SciNovaLogo';
 import { useUser } from '../../context/UserContext';
 
 const NAV_ITEMS = [
@@ -33,9 +34,7 @@ export default function NavRail({ expanded, onToggle }) {
     >
       <div className="p-4 border-b border-cx-line">
         <div className="flex items-center gap-3">
-          <div className="shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-cx-accent/20 to-cx-accent2/20 border border-cx-accent/30 flex items-center justify-center">
-            <GitBranch className="text-cx-accent" size={20} strokeWidth={1.75} />
-          </div>
+          <SciNovaLogo size={40} />
           {expanded && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-w-0">
               <h1 className="font-display font-semibold text-cx-fg text-sm">SciNova OS</h1>
