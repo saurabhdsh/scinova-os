@@ -11,13 +11,28 @@
 # Optional env:
 #   AWS_REGION=us-west-2     (default: us-west-2)
 #   BEDROCK_EMBED_MODEL=amazon.titan-embed-text-v2:0
+#   BEDROCK_LLM_MODEL=us.anthropic.claude-sonnet-4-6-v1:0
 #   SCINOVA_DIR=~/scinova-os  (for post-deploy health checks)
+#
+# Bedrock LLM + embed smoke tests: scripts/test-bedrock.sh
 
 set -u
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/bedrock-smoke.sh
+source "${SCRIPT_DIR}/lib/bedrock-smoke.sh"
+
 AWS_REGION="${AWS_REGION:-us-west-2}"
 BEDROCK_EMBED_MODEL="${BEDROCK_EMBED_MODEL:-amazon.titan-embed-text-v2:0}"
+BEDROCK_LLM_MODEL="${BEDROCK_LLM_MODEL:-us.anthropic.claude-sonnet-4-6-v1:0}"
 SCINOVA_DIR="${SCINOVA_DIR:-$HOME/scinova-os}"
+
+ENV_FILE="${SCINOVA_DIR}/.env"
+if [ -f "$ENV_FILE" ]; then
+  AWS_REGION="$(bedrock_resolve_region "$ENV_FILE")"
+  BEDROCK_EMBED_MODEL="$(bedrock_resolve_embed_model "$ENV_FILE")"
+  BEDROCK_LLM_MODEL="$(bedrock_resolve_llm_model "$ENV_FILE")"
+fi
 
 PASS=0
 WARN=0
@@ -199,31 +214,34 @@ if command -v aws >/dev/null 2>&1; then
     info "$MODELS"
   fi
 
-  TMP_EMBED="/tmp/scinova-bedrock-embed-$$.json"
-  TMP_BODY="/tmp/scinova-bedrock-body-$$.json"
-  printf '%s' '{"inputText":"SciNova preflight test","normalize":true}' > "$TMP_BODY"
-  EMBED_ERR=$(aws bedrock-runtime invoke-model \
-    --region "$AWS_REGION" \
-    --model-id "$BEDROCK_EMBED_MODEL" \
-    --content-type application/json \
-    --accept application/json \
-    --body "fileb://${TMP_BODY}" \
-    "$TMP_EMBED" 2>&1) || true
-  rm -f "$TMP_BODY"
-
-  if [ -f "$TMP_EMBED" ] && grep -q '"embedding"' "$TMP_EMBED" 2>/dev/null; then
-    DIM=$(python3 -c "import json; print(len(json.load(open('$TMP_EMBED'))['embedding']))" 2>/dev/null || echo "?")
-    pass "Bedrock embed invoke OK ($BEDROCK_EMBED_MODEL, dim=$DIM)"
-    rm -f "$TMP_EMBED"
+  info "BEDROCK_EMBEDDING_MODEL=$BEDROCK_EMBED_MODEL"
+  EMBED_DIM=$(bedrock_smoke_test_embed "$AWS_REGION" "$BEDROCK_EMBED_MODEL") || EMBED_DIM=""
+  if [ -n "$EMBED_DIM" ]; then
+    pass "Bedrock text embed OK ($BEDROCK_EMBED_MODEL, dim=$EMBED_DIM)"
   else
-    fail "Bedrock embed invoke failed ($BEDROCK_EMBED_MODEL)"
-    info "$EMBED_ERR"
-    if echo "$EMBED_ERR" | grep -qi 'AccessDenied'; then
+    fail "Bedrock text embed failed ($BEDROCK_EMBED_MODEL)"
+    info "${BEDROCK_SMOKE_ERR:-unknown error}"
+    if echo "${BEDROCK_SMOKE_ERR:-}" | grep -qi 'embed-image'; then
+      info "Use amazon.titan-embed-text-v2:0 — not titan-embed-image-v1"
+    elif echo "${BEDROCK_SMOKE_ERR:-}" | grep -qi 'AccessDenied'; then
       info "Ask IT: bedrock:InvokeModel on Genomics-Research-Role"
     else
       info "Enable model in Bedrock console → Model access → $AWS_REGION"
     fi
-    rm -f "$TMP_EMBED"
+  fi
+
+  info "BEDROCK_LLM_MODEL=$BEDROCK_LLM_MODEL"
+  if bedrock_smoke_test_llm "$AWS_REGION" "$BEDROCK_LLM_MODEL"; then
+    pass "Bedrock Claude LLM OK via ${BEDROCK_SMOKE_METHOD} ($BEDROCK_LLM_MODEL)"
+    info "Reply snippet: ${BEDROCK_SMOKE_REPLY}"
+  else
+    fail "Bedrock Claude LLM failed ($BEDROCK_LLM_MODEL)"
+    info "${BEDROCK_SMOKE_ERR:-unknown error}"
+    if echo "${BEDROCK_SMOKE_ERR:-}" | grep -qi 'AccessDenied'; then
+      info "Ask IT: bedrock:InvokeModel + bedrock:Converse on $BEDROCK_LLM_MODEL"
+    else
+      info "Confirm Claude model access in Bedrock console → $AWS_REGION"
+    fi
   fi
 else
   skip "Bedrock tests skipped (no AWS CLI)"
