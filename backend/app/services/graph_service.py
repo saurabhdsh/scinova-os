@@ -189,6 +189,12 @@ def _connected_subgraph_sql(
             GraphRelationship.source_node_id.in_(doc_node_ids),
             GraphRelationship.target_node_id.in_(doc_node_ids),
         )
+    elif allowed_nodes is not None:
+        # Scope to in-project edges first — global seed rels must not mask zero project rels.
+        rel_query = rel_query.filter(
+            GraphRelationship.source_node_id.in_(allowed_nodes),
+            GraphRelationship.target_node_id.in_(allowed_nodes),
+        )
 
     rels = rel_query.order_by(GraphRelationship.confidence.desc()).limit(max(limit * 3, 150)).all()
 
@@ -269,6 +275,34 @@ def _connected_subgraph_sql(
             if r.source_node_id in allowed_nodes and r.target_node_id in allowed_nodes
             and r.source_node_id in node_id_set and r.target_node_id in node_id_set
         ]
+
+    if allowed_nodes is not None and not nodes and allowed_nodes:
+        scoped = db.query(GraphNode).filter(
+            GraphNode.id.in_(allowed_nodes)
+        ).order_by(GraphNode.label).limit(limit).all()
+        return GraphSearchResponse(
+            nodes=[GraphNodeResponse.model_validate(n) for n in scoped],
+            relationships=[],
+            graph_source="sql",
+            graph_hint=(
+                "No relationships in this scope yet — showing extracted entities as nodes. "
+                "Use Search to explore."
+            ),
+        )
+
+    if allowed_nodes is not None:
+        scoped_rels = db.query(GraphRelationship).filter(
+            GraphRelationship.source_node_id.in_(allowed_nodes),
+            GraphRelationship.target_node_id.in_(allowed_nodes),
+        ).count()
+        if scoped_rels and (
+            len(filtered_rels) < scoped_rels or len(nodes) < len(allowed_nodes)
+        ):
+            graph_hint = graph_hint or (
+                f"Showing {len(nodes)} of {len(allowed_nodes)} project nodes · "
+                f"{len(filtered_rels)} of {scoped_rels} relationships "
+                f"(high-confidence connected subgraph for 3D view)."
+            )
 
     return GraphSearchResponse(
         nodes=[GraphNodeResponse.model_validate(n) for n in nodes],

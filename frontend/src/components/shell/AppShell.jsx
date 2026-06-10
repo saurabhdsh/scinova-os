@@ -6,7 +6,7 @@ import StatusStrip from './StatusStrip';
 import RightDock from './RightDock';
 
 const PAGE_TITLES = {
-  '/': 'Drug Command Center',
+  '/': 'Drug Research Command Center',
   '/value-chain': 'Pharma Value Chain',
   '/data-fabric': 'Scientific Data Fabric',
   '/knowledge-graph': 'Knowledge Graph Explorer',

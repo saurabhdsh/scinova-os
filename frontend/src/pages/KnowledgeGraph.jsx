@@ -68,9 +68,8 @@ export default function KnowledgeGraph() {
         });
         if (loadSeqRef.current !== seq) return;
         const fb = fallback.data;
-        const fbNodes = fb.nodes?.length ?? 0;
         const fbRels = fb.relationships?.length ?? 0;
-        if (fbRels > 0 || fbNodes > (data.nodes?.length ?? 0)) {
+        if (fbRels > 0) {
           data = {
             ...fb,
             graph_hint: data.graph_hint
@@ -134,25 +133,7 @@ export default function KnowledgeGraph() {
         : await searchGraph({ q: search, ...params });
       let data = r.data;
 
-      if ((data.relationships?.length ?? 0) === 0 && (data.nodes?.length ?? 0) > 0) {
-        const fallback = await getFullGraph({
-          ...params,
-          live_only: false,
-          document_id: undefined,
-        });
-        const fb = fallback.data;
-        const fbNodes = fb.nodes?.length ?? 0;
-        const fbRels = fb.relationships?.length ?? 0;
-        if (fbRels > 0 || fbNodes > (data.nodes?.length ?? 0)) {
-          data = {
-            ...fb,
-            graph_hint: data.graph_hint
-              || fb.graph_hint
-              || 'No relationships matched your search — showing the connected knowledge graph.',
-          };
-        }
-      }
-
+      // Keep search results as-is — do not expand to the full graph when rels are missing.
       applyGraphData(data);
       setSelected(null);
       setSelectedNodeId(null);

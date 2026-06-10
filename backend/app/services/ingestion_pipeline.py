@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.config import settings
 from app.models.db_models import (
@@ -26,6 +27,13 @@ from app.services.llm_entity_extractor import extract_entities_hybrid, extract_r
 from app.services.entity_extractor import map_ontology
 
 logger = logging.getLogger(__name__)
+
+
+def _touch_doc_metadata(doc: Document) -> None:
+    """SQLAlchemy does not detect in-place JSON mutations; ensure commits persist."""
+    if doc.metadata_json is not None:
+        flag_modified(doc, "metadata_json")
+
 
 INGESTION_STAGES = [
     "upload",
@@ -114,6 +122,7 @@ def run_ingestion_pipeline(db: Session, job_id: str) -> None:
         chunks_data: list[dict] = []
         embedding_model = "none"
         extracted_entities = []
+        pending_relationships: list[dict] = []
         extraction_method = "pattern_v1"
 
         for stage in INGESTION_STAGES:
@@ -214,7 +223,7 @@ def run_ingestion_pipeline(db: Session, job_id: str) -> None:
                 relationships, rel_method = extract_relationships_hybrid(extracted_entities, chunks_data)
                 doc.metadata_json["relationships_extracted"] = len(relationships)
                 doc.metadata_json["relationship_extraction_method"] = rel_method
-                doc.metadata_json["_pending_relationships"] = [
+                pending_relationships = [
                     {
                         "source_name": r.source_name,
                         "source_type": r.source_type,
@@ -227,12 +236,13 @@ def run_ingestion_pipeline(db: Session, job_id: str) -> None:
                     }
                     for r in relationships
                 ]
+                _touch_doc_metadata(doc)
 
             elif stage == "ontology_map":
                 pass  # ontology IDs assigned during entity_extract
 
             elif stage == "graph_update":
-                pending = doc.metadata_json.pop("_pending_relationships", [])
+                pending = pending_relationships
                 entity_nodes: dict[tuple[str, str], str] = {}
 
                 db_entities = db.query(ScientificEntity).filter(
@@ -278,6 +288,12 @@ def run_ingestion_pipeline(db: Session, job_id: str) -> None:
                         ))
 
                 doc.metadata_json["graph_nodes_created"] = len(entity_nodes)
+                doc.metadata_json["graph_relationships_created"] = sum(
+                    1 for rel in pending
+                    if entity_nodes.get((rel["source_name"].lower(), rel["source_type"]))
+                    and entity_nodes.get((rel["target_name"].lower(), rel["target_type"]))
+                )
+                _touch_doc_metadata(doc)
 
             elif stage == "neo4j_sync":
                 if settings.neo4j_enabled:
@@ -291,6 +307,7 @@ def run_ingestion_pipeline(db: Session, job_id: str) -> None:
                 job.status = "completed"
                 job.completed_at = datetime.utcnow()
 
+            _touch_doc_metadata(doc)
             db.commit()
 
         db.add(AuditEvent(
@@ -336,6 +353,92 @@ def _fail_job(db: Session, job: IngestionJob, error: str) -> None:
         if doc:
             doc.status = "failed"
     db.commit()
+
+
+def backfill_graph_relationships(db: Session, document_id: str) -> dict:
+    """Create SQL graph edges for a document that already has entities/nodes but no rels."""
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise ValueError("Document not found")
+
+    chunks = (
+        db.query(DocumentChunk)
+        .filter(DocumentChunk.document_id == document_id)
+        .order_by(DocumentChunk.chunk_index)
+        .all()
+    )
+    if not chunks:
+        return {"document_id": document_id, "created": 0, "reason": "no_chunks"}
+
+    chunks_data = [
+        {"chunk_index": c.chunk_index, "content": c.content, "token_count": c.token_count}
+        for c in chunks
+    ]
+    entities, _ = extract_entities_hybrid(chunks_data)
+    relationships, rel_method = extract_relationships_hybrid(entities, chunks_data)
+
+    db_entities = db.query(ScientificEntity).filter(
+        ScientificEntity.source_document_id == document_id
+    ).all()
+    entity_nodes: dict[tuple[str, str], str] = {}
+    for ent in db_entities:
+        node = (
+            db.query(GraphNode)
+            .filter(GraphNode.entity_id == ent.id)
+            .order_by(GraphNode.label)
+            .first()
+        )
+        if node:
+            entity_nodes[(ent.name.lower(), ent.entity_type)] = node.id
+
+    created = 0
+    seen: set[tuple[str, str, str]] = set()
+    for rel in relationships:
+        src_key = (rel.source_name.lower(), rel.source_type)
+        tgt_key = (rel.target_name.lower(), rel.target_type)
+        src_id = entity_nodes.get(src_key)
+        tgt_id = entity_nodes.get(tgt_key)
+        if not src_id or not tgt_id:
+            continue
+        dedupe = (src_id, tgt_id, rel.relationship_type)
+        if dedupe in seen:
+            continue
+        seen.add(dedupe)
+        db.add(GraphRelationship(
+            id=str(uuid.uuid4()),
+            source_node_id=src_id,
+            target_node_id=tgt_id,
+            relationship_type=rel.relationship_type,
+            properties_json={"extracted_by": rel_method, "backfill": True},
+            evidence_json=[{
+                "document_id": doc.id,
+                "document_title": doc.title,
+                "chunk_index": rel.source_chunk_index,
+                "excerpt": rel.evidence[:300],
+            }],
+            confidence=rel.confidence,
+        ))
+        created += 1
+
+    doc.metadata_json = {
+        **(doc.metadata_json or {}),
+        "relationships_extracted": len(relationships),
+        "relationship_extraction_method": rel_method,
+        "graph_relationships_created": created,
+        "relationship_backfill_at": datetime.utcnow().isoformat(),
+    }
+    _touch_doc_metadata(doc)
+    db.commit()
+
+    if settings.neo4j_enabled:
+        sync_document_to_neo4j(db, document_id)
+
+    return {
+        "document_id": document_id,
+        "relationships_found": len(relationships),
+        "relationships_created": created,
+        "method": rel_method,
+    }
 
 
 def semantic_search(

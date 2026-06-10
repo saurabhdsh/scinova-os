@@ -7,7 +7,7 @@ import {
 import { fabricSearch, getAgents, getDocuments, searchGraph } from '../../api/client';
 
 const NAV_ITEMS = [
-  { id: 'nav-home', label: 'Drug Command Center', path: '/', icon: LayoutDashboard, group: 'Pages' },
+  { id: 'nav-home', label: 'Drug Research Command Center', path: '/', icon: LayoutDashboard, group: 'Pages' },
   { id: 'nav-value-chain', label: 'Pharma Value Chain', path: '/value-chain', icon: GitBranch, group: 'Pages' },
   { id: 'nav-fabric', label: 'Scientific Data Fabric', path: '/data-fabric', icon: Sparkles, group: 'Pages' },
   { id: 'nav-docs', label: 'Documents', path: '/documents', icon: FileText, group: 'Pages' },
