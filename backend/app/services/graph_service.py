@@ -242,12 +242,12 @@ def _connected_subgraph_sql(
         node_query = db.query(GraphNode).order_by(GraphNode.label)
         if allowed_nodes is not None:
             node_query = node_query.filter(GraphNode.id.in_(allowed_nodes))
-        nodes = node_query.limit(min(limit, 24)).all()
+        nodes = node_query.limit(limit).all()
         return GraphSearchResponse(
             nodes=[GraphNodeResponse.model_validate(n) for n in nodes],
             relationships=[],
             graph_source="sql",
-            graph_hint="No relationships found. Upload documents to grow the graph.",
+            graph_hint="No relationships in graph yet — showing extracted entities as nodes. Use Search to explore.",
         )
 
     node_ids: set[str] = set()
@@ -450,12 +450,18 @@ def get_full_graph(
             rels = _enrich_relationships(db, neo_result["relationships"])
             node_ids = {n.id for n in nodes}
             rels = [r for r in rels if r.source_node_id in node_ids and r.target_node_id in node_ids]
-            if rels:
+            if nodes or rels:
                 response = GraphSearchResponse(nodes=nodes, relationships=rels, graph_source="neo4j")
                 filtered = _filter_graph_response(response, allowed_nodes)
                 if filtered.relationships:
                     return filtered
-            # fall through to SQL connected subgraph if neo4j has no edges
+                if filtered.nodes:
+                    filtered.graph_hint = (
+                        filtered.graph_hint
+                        or "Showing project-scoped Neo4j nodes (relationships may be outside this project)."
+                    )
+                    return filtered
+            # fall through to SQL if Neo4j results are empty after project scope
 
     return _connected_subgraph_sql(
         db,

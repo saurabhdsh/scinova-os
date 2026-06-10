@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState, useCallback } from 'react';
+import { lazy, Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { Search, Filter, RefreshCw, Database, Share2, GitBranch, Loader2 } from 'lucide-react';
 import GlassPanel from '../components/ui/GlassPanel';
 import {
@@ -31,6 +31,7 @@ export default function KnowledgeGraph() {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [graphHint, setGraphHint] = useState(null);
+  const loadSeqRef = useRef(0);
 
   const graphParams = useCallback(() => ({
     live_only: liveOnly,
@@ -50,10 +51,13 @@ export default function KnowledgeGraph() {
   }, []);
 
   const loadGraph = useCallback(async (overrides = {}) => {
+    const seq = loadSeqRef.current + 1;
+    loadSeqRef.current = seq;
     setLoading(true);
     try {
       const params = { ...graphParams(), ...overrides };
       let r = await getFullGraph(params);
+      if (loadSeqRef.current !== seq) return;
       let data = r.data;
 
       if ((data.relationships?.length ?? 0) === 0 && (data.nodes?.length ?? 0) > 0) {
@@ -62,10 +66,15 @@ export default function KnowledgeGraph() {
           live_only: false,
           document_id: undefined,
         });
-        if ((fallback.data.relationships?.length ?? 0) > 0) {
+        if (loadSeqRef.current !== seq) return;
+        const fb = fallback.data;
+        const fbNodes = fb.nodes?.length ?? 0;
+        const fbRels = fb.relationships?.length ?? 0;
+        if (fbRels > 0 || fbNodes > (data.nodes?.length ?? 0)) {
           data = {
-            ...fallback.data,
+            ...fb,
             graph_hint: data.graph_hint
+              || fb.graph_hint
               || 'No relationships matched your filters — showing the connected knowledge graph.',
           };
         }
@@ -77,14 +86,14 @@ export default function KnowledgeGraph() {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (loadSeqRef.current === seq) setLoading(false);
     }
   }, [applyGraphData, graphParams]);
 
   useEffect(() => {
     refreshStats();
     getDocuments().then((r) => setDocuments(r.data.filter((d) => d.status === 'indexed'))).catch(console.error);
-  }, [refreshStats]);
+  }, [refreshStats, activeProjectId]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -111,12 +120,7 @@ export default function KnowledgeGraph() {
       return;
     }
     loadGraph({ document_id: docParam || undefined });
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only deep link
-  }, []);
-
-  useEffect(() => {
-    loadGraph();
-  }, [graphSource, liveOnly, documentId, activeProjectId]);
+  }, [graphSource, liveOnly, documentId, activeProjectId, loadGraph]);
 
   const handleSearch = async () => {
     setLoading(true);
@@ -136,10 +140,14 @@ export default function KnowledgeGraph() {
           live_only: false,
           document_id: undefined,
         });
-        if ((fallback.data.relationships?.length ?? 0) > 0) {
+        const fb = fallback.data;
+        const fbNodes = fb.nodes?.length ?? 0;
+        const fbRels = fb.relationships?.length ?? 0;
+        if (fbRels > 0 || fbNodes > (data.nodes?.length ?? 0)) {
           data = {
-            ...fallback.data,
+            ...fb,
             graph_hint: data.graph_hint
+              || fb.graph_hint
               || 'No relationships matched your search — showing the connected knowledge graph.',
           };
         }
