@@ -77,7 +77,7 @@ export default function WorkflowBuilder() {
         name: `${pipeline.name} — ${new Date().toLocaleDateString()}`,
         input_data: {
           query: query.trim(),
-          project: 'SciNova R&D',
+          project: 'SciAi-Nova R&D',
           initiated_by: 'scientist',
           auto_approve: true,
           generate_report: true,
@@ -107,7 +107,7 @@ export default function WorkflowBuilder() {
         template_id: selected.id,
         input_data: {
           query: query.trim() || 'Scientific workflow analysis',
-          project: 'SciNova R&D',
+          project: 'SciAi-Nova R&D',
           initiated_by: 'scientist',
           auto_approve: false,
           generate_report: true,

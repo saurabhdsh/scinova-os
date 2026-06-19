@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SciNova OS — quick OpenAI + Mistral API smoke test (for AWS EC2 / any Linux host)
+# SciAi-Nova OS — quick OpenAI + Mistral API smoke test (for AWS EC2 / any Linux host)
 #
 # Verifies outbound access and that your API keys work (chat + OpenAI embeddings).
 #
@@ -74,7 +74,7 @@ api_call() {
 }
 
 echo ""
-echo "SciNova OS — OpenAI + Mistral API test"
+echo "SciAi-Nova OS — OpenAI + Mistral API test"
 echo "Date:  $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "Host:  $(hostname)"
 echo "Env:   $ENV_FILE"

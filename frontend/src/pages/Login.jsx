@@ -39,7 +39,7 @@ export default function Login() {
         <div className="flex items-center gap-3 mb-8">
           <SciNovaLogo size={48} />
           <div>
-            <h1 className="font-display text-xl font-semibold">SciNova OS</h1>
+            <h1 className="font-display text-xl font-semibold">SciAi-Nova OS</h1>
             <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim">SciFabric AgentOS</p>
           </div>
         </div>

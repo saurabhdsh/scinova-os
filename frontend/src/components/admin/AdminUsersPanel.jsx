@@ -108,7 +108,7 @@ export default function AdminUsersPanel() {
 
   const copyCredentials = async () => {
     if (!success) return;
-    const text = `SciNova OS login\nUsername: ${success.username}\nPassword: ${success.password}\nRole: ${success.role}`;
+    const text = `SciAi-Nova OS login\nUsername: ${success.username}\nPassword: ${success.password}\nRole: ${success.role}`;
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);

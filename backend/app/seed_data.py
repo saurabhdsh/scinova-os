@@ -1,4 +1,4 @@
-"""Seed data for SciNova OS platform."""
+"""Seed data for SciAi-Nova OS platform."""
 
 AGENTS = [
     # Target Discovery

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SciNova OS — Amazon Bedrock smoke test (Titan text embed + Claude LLM)
+# SciAi-Nova OS — Amazon Bedrock smoke test (Titan text embed + Claude LLM)
 #
 # Verifies IAM role / credentials and real model responses (not just connectivity).
 # Mirrors SciNova backend: Converse API for Claude, invoke_model fallback, Titan embed.
@@ -42,7 +42,7 @@ skip() { echo -e "${YELLOW}SKIP${NC}  $1"; }
 info() { echo -e "      $1"; }
 
 echo ""
-echo "SciNova OS — Amazon Bedrock smoke test"
+echo "SciAi-Nova OS — Amazon Bedrock smoke test"
 echo "Date:  $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "Host:  $(hostname)"
 echo "Env:   $ENV_FILE"

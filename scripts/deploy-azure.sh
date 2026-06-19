@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SciNova OS — deploy on Azure Ubuntu VM (Docker Compose)
+# SciAi-Nova OS — deploy on Azure Ubuntu VM (Docker Compose)
 #
 # Prereqs: Ubuntu 22.04/24.04 VM, ports 22 + 5173 open in NSG
 #
@@ -115,7 +115,7 @@ main() {
 
   echo ""
   echo "════════════════════════════════════════════════════════════"
-  echo "  SciNova OS deploy finished"
+  echo "  SciAi-Nova OS deploy finished"
   echo "════════════════════════════════════════════════════════════"
   if [ -n "$PUBLIC_IP" ]; then
     echo "  UI:      http://${PUBLIC_IP}:5173"

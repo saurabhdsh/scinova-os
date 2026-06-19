@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SciNova OS — Azure VM preflight checks (OpenAI + Mistral direct API)
+# SciAi-Nova OS — Azure VM preflight checks (OpenAI + Mistral direct API)
 #
 # Usage:
 #   cd ~/scinova-os
@@ -46,7 +46,7 @@ kb_to_gb() {
 }
 
 echo ""
-echo "SciNova OS — Azure preflight"
+echo "SciAi-Nova OS — Azure preflight"
 echo "Date:    $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "Host:    $(hostname)"
 echo "User:    $(whoami)"

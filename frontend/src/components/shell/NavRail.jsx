@@ -37,7 +37,7 @@ export default function NavRail({ expanded, onToggle }) {
           <SciNovaLogo size={40} />
           {expanded && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-w-0">
-              <h1 className="font-display font-semibold text-cx-fg text-sm">SciNova OS</h1>
+              <h1 className="font-display font-semibold text-cx-fg text-sm">SciAi-Nova OS</h1>
               <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim">SciFabric AgentOS</p>
               <p className="text-2xs text-cx-fgMuted mt-0.5 leading-snug">Tata Consultancy Services</p>
             </motion.div>

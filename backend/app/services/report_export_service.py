@@ -198,7 +198,7 @@ def export_report_markdown(report: ScientificReport) -> bytes:
 
     lines += [
         "---",
-        f"*SciNova OS Scientific Report · {p['report_type_label']} · {datetime.utcnow().strftime('%Y-%m-%d')}*",
+        f"*SciAi-Nova OS Scientific Report · {p['report_type_label']} · {datetime.utcnow().strftime('%Y-%m-%d')}*",
     ]
     return "\n".join(lines).encode("utf-8")
 

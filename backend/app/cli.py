@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Admin CLI — create users for SciNova OS."""
+"""Admin CLI — create users for SciAi-Nova OS."""
 
 import argparse
 import sys
@@ -16,7 +16,7 @@ from app.services.user_service import (
 
 
 def main():
-    parser = argparse.ArgumentParser(description="SciNova OS admin CLI")
+    parser = argparse.ArgumentParser(description="SciAi-Nova OS admin CLI")
     sub = parser.add_subparsers(dest="command", required=True)
 
     create = sub.add_parser("create-user", help="Create a new user")

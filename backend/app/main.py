@@ -41,12 +41,12 @@ async def lifespan(app: FastAPI):
         seed_database(db)
     finally:
         db.close()
-    logger.info("SciNova OS started (env=%s)", settings.environment)
+    logger.info("SciAi-Nova OS started (env=%s)", settings.environment)
     yield
 
 
 app = FastAPI(
-    title="SciNova OS API",
+    title="SciAi-Nova OS API",
     description="SciFabric AgentOS - AI-native Scientific Data Fabric and Agent Operating System for Pharma R&D",
     version="1.0.0",
     lifespan=lifespan,
@@ -68,7 +68,7 @@ app.include_router(api.router, prefix="/api")
 
 @app.get("/health")
 def health():
-    return {"status": "healthy", "platform": "SciNova OS", "version": "1.0.0"}
+    return {"status": "healthy", "platform": "SciAi-Nova OS", "version": "1.0.0"}
 
 
 @app.get("/health/ready")

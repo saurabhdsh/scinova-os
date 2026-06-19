@@ -84,7 +84,7 @@ def invoke_custom_tool_http(
 
 
 def test_custom_tool_connection(tool: CustomTool, sample_payload: dict | None = None) -> dict:
-    payload = sample_payload or build_custom_tool_payload(tool, tool.role_id, {"query": "SciNova Tool Fabric connectivity test"})
+    payload = sample_payload or build_custom_tool_payload(tool, tool.role_id, {"query": "SciAi-Nova OS Tool Fabric connectivity test"})
     try:
         result = invoke_custom_tool_http(tool, payload, timeout=15.0)
         preview = json.dumps(result.get("body"), default=str)[:500]

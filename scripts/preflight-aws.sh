@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SciNova OS — AWS EC2 preflight checks
+# SciAi-Nova OS — AWS EC2 preflight checks
 #
 # Run on Genomics-Research-VM (or any Ubuntu EC2) before docker compose deploy.
 #
@@ -71,7 +71,7 @@ kb_to_gb() {
 }
 
 echo ""
-echo "SciNova OS — AWS preflight"
+echo "SciAi-Nova OS — AWS preflight"
 echo "Date:    $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "Host:    $(hostname)"
 echo "Region:  $AWS_REGION"

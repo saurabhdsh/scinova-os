@@ -30,7 +30,7 @@ export default function AppShell() {
   const title = PAGE_TITLES[location.pathname]
     || (location.pathname.startsWith('/settings/users') ? 'User Administration' : null)
     || (location.pathname.startsWith('/settings/tool-fabric') ? 'Tool Fabric Registry' : null)
-    || (location.pathname.startsWith('/agents/run') ? 'Ask & Run Agents' : 'SciNova OS');
+    || (location.pathname.startsWith('/agents/run') ? 'Ask & Run Agents' : 'SciAi-Nova OS');
 
   return (
     <div className="h-full flex min-h-0">
@@ -38,7 +38,7 @@ export default function AppShell() {
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
         <TopBar
           title={title}
-          breadcrumb="SciNova OS"
+          breadcrumb="SciAi-Nova OS"
           dockOpen={dockOpen}
           onDockToggle={() => setDockOpen((v) => !v)}
         />

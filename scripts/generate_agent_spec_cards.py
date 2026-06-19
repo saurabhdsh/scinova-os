@@ -210,7 +210,7 @@ def main() -> None:
                 })
 
     lines: list[str] = [
-        "# SciNova OS — Super Agent Spec Cards",
+        "# SciAi-Nova OS — Super Agent Spec Cards",
         "",
         "> Full design specification for all **78 marketplace agents**.  ",
         "> Sources: `seed_data.py`, `agent_capabilities.py`, `model_router.py`, specialized services.  ",

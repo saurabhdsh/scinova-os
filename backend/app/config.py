@@ -11,7 +11,7 @@ _ENV_FILES = (
 
 
 class Settings(BaseSettings):
-    app_name: str = "SciNova OS"
+    app_name: str = "SciAi-Nova OS"
     database_url: str = "postgresql://scinova:scinova@localhost:5432/scinova"
     sqlite_fallback: bool = False
     environment: str = "development"

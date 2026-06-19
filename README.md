@@ -1,8 +1,8 @@
-# SciNova OS
+# SciAi-Nova OS
 
 **SciFabric AgentOS** — An AI-native Scientific Data Fabric and Agent Operating System for Pharma R&D.
 
-SciNova OS enables scientists to connect evidence, generate hypotheses, design experiments, analyze results, and produce traceable scientific outputs across the full pharma research value chain.
+SciAi-Nova OS enables scientists to connect evidence, generate hypotheses, design experiments, analyze results, and produce traceable scientific outputs across the full pharma research value chain.
 
 ## Platform Capabilities
 

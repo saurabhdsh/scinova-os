@@ -1,4 +1,4 @@
-# SciNova OS — shared Bedrock embed + LLM smoke tests.
+# SciAi-Nova OS — shared Bedrock embed + LLM smoke tests.
 # Source from preflight/test scripts:  source "$(dirname "$0")/lib/bedrock-smoke.sh"
 
 bedrock_env_get() {

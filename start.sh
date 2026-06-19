@@ -12,7 +12,7 @@ if [ -f "$ROOT/.env" ]; then
   set +a
 fi
 
-echo "=== SciNova OS Startup ==="
+echo "=== SciAi-Nova OS Startup ==="
 
 free_port() {
   local port=$1
@@ -59,7 +59,7 @@ FRONTEND_PID=$!
 cd "$ROOT"
 
 echo ""
-echo "SciNova OS is running:"
+echo "SciAi-Nova OS is running:"
 echo "  Frontend: http://localhost:5173"
 echo "  Backend:  http://localhost:8000"
 echo "  API Docs: http://localhost:8000/docs"
