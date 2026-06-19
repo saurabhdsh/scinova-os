@@ -42,7 +42,7 @@ export default function Dashboard() {
       <GlassPanel hero className="p-6">
         <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim">SciFabric AgentOS</p>
         <h1 className="font-display text-2xl font-semibold text-cx-fg mt-1">
-          Drug Research Command Center
+          Drug Discovery Command Center
         </h1>
         <p className="mt-2 text-sm text-cx-fgMuted max-w-3xl leading-relaxed">
           SciFabric AgentOS is an AI-native Scientific Data Fabric and Agent Operating System for Pharma R&D,

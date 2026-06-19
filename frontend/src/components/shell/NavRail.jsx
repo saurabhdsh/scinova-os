@@ -9,7 +9,7 @@ import SciNovaLogo from '../brand/SciNovaLogo';
 import { useUser } from '../../context/UserContext';
 
 const NAV_ITEMS = [
-  { to: '/', icon: LayoutDashboard, label: 'Drug Research Command Center', group: 'Overview' },
+  { to: '/', icon: LayoutDashboard, label: 'Drug Discovery Command Center', group: 'Overview' },
   { to: '/value-chain', icon: Layers, label: 'Pharma Value Chain', group: 'Overview' },
   { to: '/data-fabric', icon: Database, label: 'Scientific Data Fabric', group: 'Evidence' },
   { to: '/knowledge-graph', icon: Share2, label: 'Knowledge Graph Explorer', group: 'Evidence' },
