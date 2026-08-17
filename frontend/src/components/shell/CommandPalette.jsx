@@ -2,16 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bot, FileText, GitBranch, LayoutDashboard, Loader2, Search, Share2, Sparkles,
-  Workflow, Settings, Shield, Users, Cpu, Play,
+  Workflow, Settings, Shield, Users, Cpu, Play, FlaskConical,
 } from 'lucide-react';
 import { fabricSearch, getAgents, getDocuments, searchGraph } from '../../api/client';
 
 const NAV_ITEMS = [
   { id: 'nav-home', label: 'Drug Discovery Command Center', path: '/', icon: LayoutDashboard, group: 'Pages' },
-  { id: 'nav-value-chain', label: 'Pharma Value Chain', path: '/value-chain', icon: GitBranch, group: 'Pages' },
+  { id: 'nav-value-chain', label: 'Research Value Chain', path: '/value-chain', icon: GitBranch, group: 'Pages' },
   { id: 'nav-fabric', label: 'Scientific Data Fabric', path: '/data-fabric', icon: Sparkles, group: 'Pages' },
   { id: 'nav-docs', label: 'Documents', path: '/documents', icon: FileText, group: 'Pages' },
   { id: 'nav-graph', label: 'Knowledge Graph Explorer', path: '/knowledge-graph', icon: Share2, group: 'Pages' },
+  { id: 'nav-chem', label: 'Molecular Discovery Studio', path: '/molecular-studio', icon: FlaskConical, group: 'Pages' },
   { id: 'nav-agents', label: 'Research Agent Catalog', path: '/agents', icon: Bot, group: 'Pages' },
   { id: 'nav-workspace', label: 'Ask & Run Agents', path: '/agents/workspace', icon: Play, group: 'Pages' },
   { id: 'nav-workflows', label: 'Research Orchestrator', path: '/workflows', icon: Workflow, group: 'Pages' },

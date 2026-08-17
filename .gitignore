@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 backend/venv/
+.venv-chem/
 __pycache__/
 *.pyc
 .pytest_cache/

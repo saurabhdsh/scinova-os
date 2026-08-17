@@ -1,0 +1,16 @@
+---
+description: Coding standards for this workspace
+globs:
+alwaysApply: true
+---
+
+# Coding Standards
+
+- Follow existing naming and import conventions in the repo
+- Use functional components and hooks
+- Co-locate styles with components when that pattern exists
+
+- Minimal diffs — change only what the task requires
+- No drive-by refactors or unrelated formatting
+- Match surrounding error handling and logging patterns
+- Prefer extending existing utilities over new abstractions

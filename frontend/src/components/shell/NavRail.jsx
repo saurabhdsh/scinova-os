@@ -3,16 +3,17 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Database, Share2, Bot, Play,
   Workflow, Cpu, Shield, FileText, Layers, ChevronLeft, Settings2,
-  Users, LogOut, MessageSquare, Wrench,
+  Users, LogOut, MessageSquare, Wrench, FlaskConical,
 } from 'lucide-react';
 import SciNovaLogo from '../brand/SciNovaLogo';
 import { useUser } from '../../context/UserContext';
 
 const NAV_ITEMS = [
   { to: '/', icon: LayoutDashboard, label: 'Drug Discovery Command Center', group: 'Overview' },
-  { to: '/value-chain', icon: Layers, label: 'Pharma Value Chain', group: 'Overview' },
+  { to: '/value-chain', icon: Layers, label: 'Research Value Chain', group: 'Overview' },
   { to: '/data-fabric', icon: Database, label: 'Scientific Data Fabric', group: 'Evidence' },
   { to: '/knowledge-graph', icon: Share2, label: 'Knowledge Graph Explorer', group: 'Evidence' },
+  { to: '/molecular-studio', icon: FlaskConical, label: 'Molecular Discovery Studio', group: 'Discovery' },
   { to: '/agents', icon: Bot, label: 'Research Agent Catalog', group: 'Agents & Runs' },
   { to: '/agents/workspace', icon: Play, label: 'Ask & Run Agents', group: 'Agents & Runs' },
   { to: '/workflows', icon: Workflow, label: 'Research Orchestrator', group: 'Orchestration' },
@@ -37,8 +38,7 @@ export default function NavRail({ expanded, onToggle }) {
           <SciNovaLogo size={40} />
           {expanded && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-w-0">
-              <h1 className="font-display font-semibold text-cx-fg text-sm">SciAi-Nova OS</h1>
-              <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim">SciFabric AgentOS</p>
+              <h1 className="font-display font-semibold text-cx-fg text-sm">SciNova</h1>
               <p className="text-2xs text-cx-fgMuted mt-0.5 leading-snug">Tata Consultancy Services</p>
             </motion.div>
           )}

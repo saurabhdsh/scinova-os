@@ -1,0 +1,29 @@
+---
+description: Token and context optimization
+alwaysApply: true
+---
+
+# Token Optimization
+
+Estimated workspace tokens: ~2.16M
+Potential savings with optimization: ~62%
+
+## Rules
+1. Use @-file references for specific paths, not directory globs
+2. Summarize architecture in rules instead of re-reading large docs each prompt
+3. Exclude generated and dependency folders from every prompt
+4. For bugs, paste only relevant log excerpts (max ~50 lines)
+5. For UI work, describe layout in words; attach screenshots only when necessary
+6. Split large refactors into phased prompts
+
+## Heavy folders to avoid
+- backend
+- backend/storage/uploads/f5ce8183-d1c1-4f0b-ba3d-669e43bece20
+- backend/storage/uploads/a4237720-f9af-4b2b-be6d-1770e3cb01e0
+- backend/storage/uploads/fc14065c-8def-48b9-a4d9-134760fb9744
+- backend/app/__pycache__
+- backend/app/core/__pycache__
+- backend/app/dependencies/__pycache__
+- backend/app/models/__pycache__
+- backend/app/routes/__pycache__
+- backend/app/services/__pycache__

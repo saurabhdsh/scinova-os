@@ -149,7 +149,7 @@ export default function WorkflowBuilder() {
         <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim">Research Orchestrator</p>
         <h2 className="font-display text-xl font-semibold mt-1">Research Orchestrator</h2>
         <p className="text-sm text-cx-fgMuted mt-2">
-          Multi-agent pipelines that chain evidence gathering, analysis, and traceable scientific reports across the R&D value chain.
+          Multi-agent pipelines that chain evidence gathering, analysis, and traceable scientific reports across the research value chain.
         </p>
       </GlassPanel>
 

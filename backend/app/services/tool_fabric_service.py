@@ -81,6 +81,37 @@ TOOL_CATALOG: dict[str, dict] = {
         "description": "Pharmacometric modelling integration",
         "status": "planned",
     },
+    # Molecular Discovery Studio
+    "uniprot": {
+        "label": "UniProt",
+        "category": "target_resolve",
+        "description": "Protein identifier and function lookup",
+        "status": "available",
+    },
+    "pdb_rcsb": {
+        "label": "RCSB PDB",
+        "category": "structures",
+        "description": "Experimental structure search and mmCIF download",
+        "status": "available",
+    },
+    "alphafold": {
+        "label": "AlphaFold DB",
+        "category": "structures",
+        "description": "Predicted structures when experimental PDB unavailable",
+        "status": "planned",
+    },
+    "chembl": {
+        "label": "ChEMBL",
+        "category": "bioactives",
+        "description": "Known bioactives and pChEMBL potency",
+        "status": "available",
+    },
+    "molstar": {
+        "label": "Mol*",
+        "category": "structure_viewer",
+        "description": "Interactive 3D molecular visualization (MolStar)",
+        "status": "available",
+    },
 }
 
 # Roles users can assign per agent class
@@ -114,6 +145,26 @@ TOOL_ROLES: dict[str, dict] = {
         "label": "Knowledge graph",
         "options": ["neo4j_kg"],
         "default": "neo4j_kg",
+    },
+    "target_resolve": {
+        "label": "Target resolve",
+        "options": ["uniprot"],
+        "default": "uniprot",
+    },
+    "structures": {
+        "label": "Structures",
+        "options": ["pdb_rcsb", "alphafold"],
+        "default": "pdb_rcsb",
+    },
+    "bioactives": {
+        "label": "Known bioactives",
+        "options": ["chembl"],
+        "default": "chembl",
+    },
+    "structure_viewer": {
+        "label": "Structure viewer",
+        "options": ["molstar"],
+        "default": "molstar",
     },
 }
 
@@ -290,6 +341,11 @@ def bindings_to_tools_used(bindings: dict[str, str], db: Session | None = None) 
         "kegg": "KEGG",
         "neo4j_kg": "KG Query",
         "eln_lims": "ELN Connector",
+        "uniprot": "UniProt",
+        "pdb_rcsb": "PDB Query",
+        "alphafold": "AlphaFold",
+        "chembl": "ChEMBL",
+        "molstar": "Mol*",
     }
     labels: list[str] = []
     for tool_id in bindings.values():

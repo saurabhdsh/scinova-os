@@ -40,12 +40,12 @@ export default function Dashboard() {
   return (
     <div className="p-6 space-y-6 max-w-[1600px]">
       <GlassPanel hero className="p-6">
-        <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim">SciFabric AgentOS</p>
+        <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim">SciNova</p>
         <h1 className="font-display text-2xl font-semibold text-cx-fg mt-1">
           Drug Discovery Command Center
         </h1>
         <p className="mt-2 text-sm text-cx-fgMuted max-w-3xl leading-relaxed">
-          SciFabric AgentOS is an AI-native Scientific Data Fabric and Agent Operating System for Pharma R&D,
+          SciNova is an AI-native Scientific Data Fabric and Agent Operating System for Drug Discovery,
           enabling scientists to connect evidence, generate hypotheses, design experiments, analyze results,
           and produce traceable scientific outputs across the research value chain.
         </p>
@@ -70,7 +70,7 @@ export default function Dashboard() {
 
       <div className="grid lg:grid-cols-2 gap-6">
         <GlassPanel>
-          <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim mb-4">Agent Usage by Value Chain</p>
+          <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim mb-4">Agent Usage by Research Value Chain</p>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={stageData}>
               <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />

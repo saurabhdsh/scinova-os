@@ -7,9 +7,10 @@ import RightDock from './RightDock';
 
 const PAGE_TITLES = {
   '/': 'Drug Discovery Command Center',
-  '/value-chain': 'Pharma Value Chain',
+  '/value-chain': 'Research Value Chain',
   '/data-fabric': 'Scientific Data Fabric',
   '/knowledge-graph': 'Knowledge Graph Explorer',
+  '/molecular-studio': 'Molecular Discovery Studio',
   '/agents': 'Research Agent Catalog',
   '/agents/workspace': 'Ask & Run Agents',
   '/workflows': 'Research Orchestrator',
@@ -30,7 +31,7 @@ export default function AppShell() {
   const title = PAGE_TITLES[location.pathname]
     || (location.pathname.startsWith('/settings/users') ? 'User Administration' : null)
     || (location.pathname.startsWith('/settings/tool-fabric') ? 'Tool Fabric Registry' : null)
-    || (location.pathname.startsWith('/agents/run') ? 'Ask & Run Agents' : 'SciAi-Nova OS');
+    || (location.pathname.startsWith('/agents/run') ? 'Ask & Run Agents' : 'SciNova');
 
   return (
     <div className="h-full flex min-h-0">
@@ -38,7 +39,7 @@ export default function AppShell() {
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
         <TopBar
           title={title}
-          breadcrumb="SciAi-Nova OS"
+          breadcrumb="SciNova"
           dockOpen={dockOpen}
           onDockToggle={() => setDockOpen((v) => !v)}
         />

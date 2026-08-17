@@ -30,8 +30,8 @@ export default function ValueChain() {
     <div className="p-6 space-y-6">
       <GlassPanel hero>
         <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim">Overview</p>
-        <h2 className="font-display text-xl font-semibold mt-1">Pharma Value Chain</h2>
-        <p className="text-sm text-cx-fgMuted mt-2">Agents organized by value chain stage across the full drug discovery pipeline.</p>
+        <h2 className="font-display text-xl font-semibold mt-1">Research Value Chain</h2>
+        <p className="text-sm text-cx-fgMuted mt-2">Agents organized by research value chain stage across the full drug discovery pipeline.</p>
       </GlassPanel>
 
       <div className="overflow-x-auto pb-4">

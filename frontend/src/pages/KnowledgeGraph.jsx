@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState, useCallback, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Search, Filter, RefreshCw, Database, Share2, GitBranch, Loader2 } from 'lucide-react';
 import GlassPanel from '../components/ui/GlassPanel';
 import {
@@ -311,6 +312,16 @@ export default function KnowledgeGraph() {
                 {selected.traversal_depth > 1 && ` · ${selected.traversal_depth}-hop traversal`}
               </span>
             </p>
+            {(selected.center_node?.node_type === 'Protein'
+              || selected.center_node?.node_type === 'Target'
+              || selected.center_node?.node_type === 'Compound') && (
+              <Link
+                to={`/molecular-studio`}
+                className="inline-flex mt-3 text-xs text-cx-accent border border-cx-accent/30 rounded-lg px-2 py-1 hover:bg-cx-accent/5"
+              >
+                Open in Molecular Discovery Studio
+              </Link>
+            )}
 
             <p className="text-2xs uppercase tracking-wider text-cx-fgDim mt-4 mb-2">
               Neighborhood ({selected.relationships.length})

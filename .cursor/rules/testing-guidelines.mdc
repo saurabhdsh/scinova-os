@@ -1,0 +1,13 @@
+---
+description: Testing guidelines
+globs: **/__tests__/**, **/test/**, **/spec/**
+---
+
+# Testing Guidelines
+
+Test directories: __tests__, test, spec
+
+- Add tests only when requested or when fixing regressions
+- Prefer testing real behavior over implementation details
+- Use existing test utilities and fixtures
+- Keep test data small — avoid loading production logs or large fixtures into context

@@ -1,0 +1,24 @@
+---
+description: Project architecture and context boundaries for Docker · Node · React · Express
+globs:
+alwaysApply: true
+---
+
+# Project Architecture
+
+**Stack:** Docker · Node · React · Express
+**Scanned:** 2026-06-23T06:42:04.998Z
+
+## Source layout
+Primary folders: backend/app/__pycache__, backend/app/core/__pycache__, backend/app/dependencies/__pycache__, backend/app/models/__pycache__, backend/app/routes/__pycache__, backend/app/services/__pycache__, backend/app/tasks/__pycache__, backend/app/services, frontend/src/pages, backend/app, frontend/src/components/shell, backend/app/routes, frontend/src/components/admin, backend/app/models, frontend/src/components/workflow, frontend/src/components/agents, frontend/src/components/workspace, frontend/src/components/graph, frontend/src/api, scripts/lib, frontend/src, frontend/src/components/ui, frontend/src/context, backend/app/dependencies, frontend/src/lib, backend/app/core, backend/app/tasks, frontend/src/components/brand
+Test folders: standard test dirs
+Documentation: docs
+
+## Context policy
+- Read only files required for the current task
+- Never load backend/venv, frontend/node_modules into context
+- Exclude build outputs: backend/app/routes/__pycache__, frontend/dist, backend/app/routes
+- Sensitive paths are blocked: .env, .env.example
+
+## Module boundaries
+When implementing features, identify the owning module first, then scope reads to that module plus shared utilities.

@@ -1,0 +1,27 @@
+---
+description: Paths and patterns excluded from AI context
+alwaysApply: true
+---
+
+# Excluded Context
+
+Never read or include in prompts:
+
+- `backend/venv`
+- `frontend/node_modules`
+- `backend/app/routes/__pycache__`
+- `frontend/dist`
+- `backend/app/routes`
+- `logs`
+- `coverage`
+- `*.log`
+- `*.min.js`
+- `package-lock.json`
+- `.env`
+- `.env.example`
+
+## Sensitive (Critical)
+- .env
+- .env.example
+
+If a task appears to require excluded content, ask the user for a minimal excerpt instead.

@@ -16,6 +16,7 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Collaboration from './pages/Collaboration';
 import Login from './pages/Login';
+import MolecularDiscoveryStudio from './pages/MolecularDiscoveryStudio';
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('scinova_token');
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="data-fabric" element={<DataFabric />} />
           <Route path="documents" element={<Documents />} />
           <Route path="knowledge-graph" element={<KnowledgeGraph />} />
+          <Route path="molecular-studio" element={<MolecularDiscoveryStudio />} />
           <Route path="agents" element={<AgentMarketplace />} />
           <Route path="agents/workspace" element={<AgentWorkspace />} />
           <Route path="agents/run/:agentId" element={<AgentWorkspace />} />

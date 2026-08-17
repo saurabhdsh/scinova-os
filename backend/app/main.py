@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import Base, SessionLocal, engine, get_db
 from app.db_migrate import run_migrations
-from app.routes import admin, api, auth
+from app.routes import admin, api, auth, chem
 from app.seed import seed_database
 
 logging.basicConfig(
@@ -64,6 +64,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(api.router, prefix="/api")
+app.include_router(chem.router, prefix="/api")
 
 
 @app.get("/health")
