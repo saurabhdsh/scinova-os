@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SciNova OS — one-shot EC2 setup (Docker + git clone/pull + Bedrock .env + compose)
 #
-# Run ON the EC2 instance (ubuntu@weave-server), as a normal user with sudo:
+# Run ON the EC2 instance (ec2-user on Amazon Linux, or ubuntu), with sudo:
 #
 #   curl -fsSL https://raw.githubusercontent.com/saurabhdsh/scinova-os/main/scripts/setup_ec2.sh | bash
 #   # or, after clone:
@@ -41,39 +41,63 @@ need_cmd() {
 # ---------------------------------------------------------------------------
 # 1) System packages + Docker
 # ---------------------------------------------------------------------------
-info "Installing base packages (git, curl, AWS CLI if missing)…"
+# Amazon Linux 2023 ships curl-minimal; installing "curl" conflicts. Never
+# install curl if curl or curl-minimal is already present.
+install_awscli() {
+  need_cmd aws && return 0
+  info "Installing AWS CLI v2…"
+  tmp="$(mktemp -d)"
+  curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "$tmp/awscliv2.zip"
+  unzip -q "$tmp/awscliv2.zip" -d "$tmp"
+  sudo "$tmp/aws/install" || sudo "$tmp/aws/install" --update
+  rm -rf "$tmp"
+}
+
+ensure_compose_plugin() {
+  if docker compose version >/dev/null 2>&1 || sudo docker compose version >/dev/null 2>&1; then
+    return 0
+  fi
+  info "Installing Docker Compose plugin…"
+  sudo mkdir -p /usr/local/lib/docker/cli-plugins
+  sudo curl -fsSL \
+    "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64" \
+    -o /usr/local/lib/docker/cli-plugins/docker-compose
+  sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+}
+
+info "Installing base packages (git, unzip, jq — skip curl on Amazon Linux)…"
 if need_cmd apt-get; then
   sudo apt-get update -y
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    ca-certificates curl git unzip jq
-  if ! need_cmd aws; then
-    info "Installing AWS CLI v2…"
-    tmp="$(mktemp -d)"
-    curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "$tmp/awscliv2.zip"
-    unzip -q "$tmp/awscliv2.zip" -d "$tmp"
-    sudo "$tmp/aws/install" || sudo "$tmp/aws/install" --update
-    rm -rf "$tmp"
-  fi
+    ca-certificates git unzip jq
+  install_awscli
+elif need_cmd dnf; then
+  sudo dnf install -y git unzip jq
+  install_awscli
 elif need_cmd yum; then
-  sudo yum install -y git curl unzip jq
-  if ! need_cmd aws; then
-    tmp="$(mktemp -d)"
-    curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "$tmp/awscliv2.zip"
-    unzip -q "$tmp/awscliv2.zip" -d "$tmp"
-    sudo "$tmp/aws/install" || sudo "$tmp/aws/install" --update
-    rm -rf "$tmp"
-  fi
+  sudo yum install -y git unzip jq
+  install_awscli
 else
-  warn "Unknown package manager — ensure git, curl, docker, aws are installed."
+  warn "Unknown package manager — ensure git, docker, aws are installed."
 fi
 
 if ! need_cmd docker; then
   info "Installing Docker Engine…"
-  curl -fsSL https://get.docker.com | sudo sh
+  if need_cmd dnf; then
+    sudo dnf install -y docker
+    sudo systemctl enable --now docker
+  elif need_cmd yum; then
+    sudo yum install -y docker
+    sudo systemctl enable --now docker
+  else
+    curl -fsSL https://get.docker.com | sudo sh
+  fi
 fi
 
-if ! docker compose version >/dev/null 2>&1; then
-  fail "docker compose plugin missing. Re-run get.docker.com or install docker-compose-plugin."
+ensure_compose_plugin
+
+if ! docker compose version >/dev/null 2>&1 && ! sudo docker compose version >/dev/null 2>&1; then
+  fail "docker compose plugin missing after install."
 fi
 
 if ! groups | grep -q '\bdocker\b'; then
