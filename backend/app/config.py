@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -45,6 +46,9 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-4o-mini"
     llm_fallback_model: str = ""
     bedrock_llm_model: str = ""
+    bedrock_model_id: str = ""  # BEDROCK_MODEL_ID alias used in Weave/EC2 .env
+    bedrock_enabled: bool = False
+    default_llm_provider: str = ""
     llm_max_tokens: int = 4096
     mistral_api_key: str = ""
     mistral_base_url: str = "https://api.mistral.ai/v1"
@@ -66,6 +70,17 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @model_validator(mode="after")
+    def _apply_bedrock_aliases(self):
+        """Map Weave/EC2 env names onto the fields SciNova actually routes on."""
+        if not self.bedrock_llm_model and self.bedrock_model_id:
+            self.bedrock_llm_model = self.bedrock_model_id
+        provider = (self.default_llm_provider or "").strip().lower()
+        if self.bedrock_enabled or provider == "bedrock":
+            if self.bedrock_llm_model and "anthropic." not in (self.llm_model or ""):
+                self.llm_model = self.bedrock_llm_model
+        return self
 
 
 settings = Settings()

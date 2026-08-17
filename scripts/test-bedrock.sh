@@ -13,8 +13,8 @@
 # Optional:
 #   SCINOVA_DIR=~/scinova-os
 #   ENV_FILE=/path/to/.env
-#   AWS_REGION=us-west-2
-#   BEDROCK_LLM_MODEL=us.anthropic.claude-sonnet-4-6-v1:0
+#   AWS_REGION=us-east-1
+#   BEDROCK_LLM_MODEL=us.anthropic.claude-sonnet-4-5-20250929-v1:0
 #   BEDROCK_EMBED_MODEL=amazon.titan-embed-text-v2:0
 
 set -u
@@ -24,6 +24,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/bedrock-smoke.sh"
 
 SCINOVA_DIR="${SCINOVA_DIR:-$HOME/scinova-os}"
+if [ ! -f "${SCINOVA_DIR}/.env" ] && [ -f "$HOME/SciNova-OS/.env" ]; then
+  SCINOVA_DIR="$HOME/SciNova-OS"
+fi
 ENV_FILE="${ENV_FILE:-$SCINOVA_DIR/.env}"
 
 RED='\033[0;31m'

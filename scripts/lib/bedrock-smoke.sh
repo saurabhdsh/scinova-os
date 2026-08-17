@@ -21,19 +21,24 @@ bedrock_env_get() {
 # Resolve Claude / Anthropic Bedrock model id from .env (matches SciNova llm_service routing).
 bedrock_resolve_llm_model() {
   local env_file="${1:-}"
-  local llm_model bedrock_llm_model
+  local llm_model bedrock_llm_model bedrock_model_id
   llm_model=$(bedrock_env_get "$env_file" "LLM_MODEL" "")
   bedrock_llm_model=$(bedrock_env_get "$env_file" "BEDROCK_LLM_MODEL" "")
+  bedrock_model_id=$(bedrock_env_get "$env_file" "BEDROCK_MODEL_ID" "")
 
   if [ -n "$bedrock_llm_model" ]; then
     echo "$bedrock_llm_model"
+    return
+  fi
+  if [ -n "$bedrock_model_id" ]; then
+    echo "$bedrock_model_id"
     return
   fi
   if echo "$llm_model" | grep -qi 'anthropic\.'; then
     echo "$llm_model"
     return
   fi
-  echo "us.anthropic.claude-sonnet-4-6-v1:0"
+  echo "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 }
 
 bedrock_resolve_embed_model() {
@@ -55,7 +60,7 @@ bedrock_resolve_region() {
     echo "$from_env"
     return
   fi
-  echo "${AWS_REGION:-us-west-2}"
+  echo "${AWS_REGION:-us-east-1}"
 }
 
 # Extract assistant text from Bedrock Converse API JSON response file.
