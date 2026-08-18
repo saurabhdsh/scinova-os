@@ -14,10 +14,14 @@ export default defineConfig({
       '/api': {
         target: process.env.VITE_API_PROXY_TARGET || 'http://localhost:8000',
         changeOrigin: true,
+        timeout: 180_000,
+        proxyTimeout: 180_000,
       },
       '/health': {
         target: process.env.VITE_API_PROXY_TARGET || 'http://localhost:8000',
         changeOrigin: true,
+        timeout: 180_000,
+        proxyTimeout: 180_000,
       },
     },
   },

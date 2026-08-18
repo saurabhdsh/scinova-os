@@ -36,8 +36,18 @@ def bedrock_credentials_available() -> bool:
 
 def get_bedrock_runtime_client():
     import boto3
+    from botocore.config import Config
 
-    kwargs: dict = {"region_name": aws_region()}
+    # Default botocore read_timeout is 60s — Claude agent JSON often needs longer.
+    # Limit retries so a hung Invoke does not block the UI for several minutes.
+    kwargs: dict = {
+        "region_name": aws_region(),
+        "config": Config(
+            connect_timeout=10,
+            read_timeout=180,
+            retries={"max_attempts": 2, "mode": "standard"},
+        ),
+    }
     if settings.aws_access_key_id and settings.aws_secret_access_key:
         kwargs["aws_access_key_id"] = settings.aws_access_key_id
         kwargs["aws_secret_access_key"] = settings.aws_secret_access_key

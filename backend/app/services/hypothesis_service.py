@@ -23,7 +23,7 @@ Return JSON with keys:
   - suggested_experiments: array of strings (2-3 items)
   - confidence: float 0-1
 - gaps: array of strings (knowledge gaps)
-- answer: string (detailed report narrative for scientists, 600-1200 words covering background, evidence synthesis, ranked hypotheses, and recommended next experiments)"""
+- answer: string (concise scientific narrative, 180-280 words: background, evidence, top hypotheses, next experiments)"""
 
 HYPOTHESIS_VALIDATE_SYSTEM = """You are a scientific hypothesis validator for pharma R&D.
 Evaluate the hypothesis against provided evidence. Return JSON with:

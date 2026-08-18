@@ -51,7 +51,7 @@ export const syncGraphToNeo4j = () => api.post('/graph/sync');
 
 export const getAgents = (params) => api.get('/agents', { params });
 export const getAgent = (id) => api.get(`/agents/${id}`);
-export const runAgent = (id, data) => api.post(`/agents/${id}/run`, data);
+export const runAgent = (id, data) => api.post(`/agents/${id}/run`, data, { timeout: 180000 });
 export const ragQuery = (data) => api.post('/rag/query', data);
 export const getAgentRuns = (id) => api.get(`/agents/${id}/runs`);
 

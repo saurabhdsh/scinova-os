@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from typing import Literal
 
 import httpx
@@ -234,23 +235,30 @@ class LLMService:
             logger.warning("LLM JSON call failed (%s): %s", api_model, e)
             return None
 
+    def _bedrock_max_tokens(self, *, json_mode: bool = False) -> int:
+        cap = 2048 if json_mode else 3072
+        return max(256, min(int(settings.llm_max_tokens or cap), cap))
+
     def _bedrock_chat(
         self,
         system: str,
         user: str,
         model_id: str,
         temperature: float,
+        *,
+        json_mode: bool = False,
     ) -> str | None:
         if not self.bedrock_available:
             logger.warning("Bedrock not configured for model %s", model_id)
             return None
+        started = time.monotonic()
         try:
             client = get_bedrock_runtime_client()
             kwargs: dict = {
                 "modelId": model_id,
                 "messages": [{"role": "user", "content": [{"text": user}]}],
                 "inferenceConfig": {
-                    "maxTokens": settings.llm_max_tokens,
+                    "maxTokens": self._bedrock_max_tokens(json_mode=json_mode),
                     "temperature": temperature,
                 },
             }
@@ -259,10 +267,19 @@ class LLMService:
             response = client.converse(**kwargs)
             blocks = response["output"]["message"]["content"]
             texts = [b.get("text", "") for b in blocks if b.get("text")]
+            logger.info(
+                "Bedrock converse OK (%s) in %.1fs",
+                model_id,
+                time.monotonic() - started,
+            )
             return "".join(texts).strip() or None
         except Exception as e:
-            logger.warning("Bedrock converse failed (%s): %s", model_id, e)
-            return self._bedrock_invoke_chat(system, user, model_id, temperature)
+            elapsed = time.monotonic() - started
+            logger.warning("Bedrock converse failed (%s) after %.1fs: %s", model_id, elapsed, e)
+            # Do not double-pay a 3-minute timeout with invoke_model.
+            if elapsed >= 50 or "ReadTimeout" in type(e).__name__ or "timeout" in str(e).lower():
+                return None
+            return self._bedrock_invoke_chat(system, user, model_id, temperature, json_mode=json_mode)
 
     def _bedrock_invoke_chat(
         self,
@@ -270,11 +287,13 @@ class LLMService:
         user: str,
         model_id: str,
         temperature: float,
+        *,
+        json_mode: bool = False,
     ) -> str | None:
         """Fallback for models that do not support the Converse API."""
         body = {
             "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": settings.llm_max_tokens,
+            "max_tokens": self._bedrock_max_tokens(json_mode=json_mode),
             "system": system,
             "messages": [{"role": "user", "content": user}],
             "temperature": temperature,
@@ -307,6 +326,7 @@ class LLMService:
             user,
             model_id,
             temperature,
+            json_mode=True,
         )
         return _parse_json_content(content or "")
 
