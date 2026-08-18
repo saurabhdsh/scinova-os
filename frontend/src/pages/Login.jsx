@@ -34,7 +34,13 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-full flex items-center justify-center p-6 grid-bg">
+    <div className="relative min-h-full flex items-center justify-center p-6 grid-bg">
+      <img
+        src="/tcs-logo.svg"
+        alt="Tata Consultancy Services"
+        className="absolute top-6 left-12 h-12 w-auto max-w-[260px] object-contain object-left"
+        draggable={false}
+      />
       <div className="glass-panel-hero w-full max-w-md p-8">
         <div className="flex items-center gap-3 mb-8">
           <SciNovaLogo size={48} />
