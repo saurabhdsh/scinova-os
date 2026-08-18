@@ -122,12 +122,28 @@ def execute_agent(
             agent_category=agent.category,
             agent_description=agent.description,
         )
-        output = rag_result["output"]
-        citations = rag_result["citations"]
-        confidence = rag_result["confidence"]
-        pipeline = "rag"
-        for log in rag_result["logs"]:
-            run.logs_json.append({"timestamp": datetime.utcnow().isoformat(), **log})
+        # Fresh EC2 / empty Chroma: do not dead-end specialized agents (hypothesis, literature, …)
+        if rag_result.get("output", {}).get("mode") == "retrieval_empty" and get_specialized_task_type(agent) and str(input_data.get("query", "")).strip():
+            run.logs_json.append({
+                "timestamp": datetime.utcnow().isoformat(),
+                "message": "Knowledge base empty — falling back to PubMed/KEGG/KG pipeline",
+            })
+            spec_result = _run_specialized_pipeline(db, agent, input_data, model)
+            output = spec_result["output"]
+            output["model_type"] = routing.model_type
+            output["human_review_required"] = routing.human_review_required
+            citations = spec_result["citations"]
+            confidence = spec_result["confidence"]
+            pipeline = output.get("mode", "specialized")
+            for log in spec_result["logs"]:
+                run.logs_json.append({"timestamp": datetime.utcnow().isoformat(), **log})
+        else:
+            output = rag_result["output"]
+            citations = rag_result["citations"]
+            confidence = rag_result["confidence"]
+            pipeline = "rag"
+            for log in rag_result["logs"]:
+                run.logs_json.append({"timestamp": datetime.utcnow().isoformat(), **log})
 
     elif agent_supports_specialized(agent, input_data):
         spec_result = _run_specialized_pipeline(db, agent, input_data, model)

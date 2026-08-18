@@ -93,7 +93,7 @@ export default function AgentWorkspace() {
   const [result, setResult] = useState(null);
   const [toolFabric, setToolFabric] = useState(null);
   const [toolFabricLoading, setToolFabricLoading] = useState(false);
-  const [taskMode, setTaskMode] = useState('qa');
+  const [taskMode, setTaskMode] = useState('pipeline');
   const [workspaceIntent, setWorkspaceIntent] = useState(null);
   const [runError, setRunError] = useState('');
 
@@ -108,6 +108,13 @@ export default function AgentWorkspace() {
       getAgent(idFromRoute).then((r) => setSelected(r.data)).catch(console.error);
     }
   }, [agentId, searchParams]);
+
+  useEffect(() => {
+    if (!selected) return;
+    const intent = getAgentIntent(selected);
+    setWorkspaceIntent(intent === 'browse' ? null : intent);
+    setTaskMode(intent === 'qa' || intent === 'browse' ? 'qa' : 'pipeline');
+  }, [selected?.id]);
 
   useEffect(() => {
     if (!selected?.id) {
