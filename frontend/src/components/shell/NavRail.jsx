@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Database, Share2, Bot, Play,
   Workflow, Cpu, Shield, FileText, Layers, ChevronLeft, Settings2,
-  Users, LogOut, MessageSquare, Wrench, FlaskConical,
+  Users, LogOut, MessageSquare, Wrench, FlaskConical, Microscope,
 } from 'lucide-react';
 import SciNovaLogo from '../brand/SciNovaLogo';
 import { useUser } from '../../context/UserContext';
@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { to: '/data-fabric', icon: Database, label: 'Scientific Data Fabric', group: 'Evidence' },
   { to: '/knowledge-graph', icon: Share2, label: 'Knowledge Graph Explorer', group: 'Evidence' },
   { to: '/molecular-studio', icon: FlaskConical, label: 'Molecular Discovery Studio', group: 'Discovery' },
+  { to: '/lab', icon: Microscope, label: 'Lab Command Center', group: 'Lab' },
   { to: '/agents', icon: Bot, label: 'Research Agent Catalog', group: 'Agents & Runs' },
   { to: '/agents/workspace', icon: Play, label: 'Ask & Run Agents', group: 'Agents & Runs' },
   { to: '/workflows', icon: Workflow, label: 'Research Orchestrator', group: 'Orchestration' },

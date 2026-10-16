@@ -14,13 +14,17 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import Base, SessionLocal, engine, get_db
 from app.db_migrate import run_migrations
-from app.routes import admin, api, auth, chem
+import app.lab.models  # noqa: F401  (register lab tables)
+from app.lab.errors import LabError
+from app.lab.seed_lab import seed_lab
+from app.routes import admin, api, auth, chem, lab
 from app.seed import seed_database
 
 logging.basicConfig(
@@ -39,6 +43,7 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         seed_database(db)
+        seed_lab(db)
     finally:
         db.close()
     logger.info("SciAi-Nova OS started (env=%s)", settings.environment)
@@ -65,6 +70,12 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(api.router, prefix="/api")
 app.include_router(chem.router, prefix="/api")
+app.include_router(lab.router, prefix="/api")
+
+
+@app.exception_handler(LabError)
+async def handle_lab_error(_request, exc: LabError):
+    return JSONResponse(status_code=exc.status_code, content=exc.as_dict())
 
 
 @app.get("/health")

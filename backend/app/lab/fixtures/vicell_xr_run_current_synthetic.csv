@@ -1,0 +1,13 @@
+# data_class: SYNTHETIC
+# instrument_model: Vi-CELL XR
+# instrument_serial: VC-XR-1042
+# software_version: 2.04
+# schema: vicell-xr-tabular-v1
+# note: Synthetic numeric values. Headers follow publicly documented Vi-CELL XR export fields. Not a Beckman-validated fixture.
+Sample ID,Sample Date,Cell Type,Dilution Factor,Total Cell Count,Viable Cell Count,Viability (%),Total Cells /mL,Viable Cells /mL,Average Diameter,Average Circularity,Minimum Diameter,Maximum Diameter,Images
+SYN-S-001,2026-03-01,CHO-K1,1,1240,1142,92.1,1240000.0,1142000.0,14.8,0.87,8.1,24.0,50
+SYN-S-002,2026-03-01,CHO-K1,1,1188,1074,90.4,1188000.0,1074000.0,15.1,0.85,8.0,25.2,50
+SYN-S-003,2026-03-01,CHO-K1,1,1210,1085,89.7,1210000.0,1085000.0,14.6,0.86,7.9,23.4,49
+SYN-S-004,2026-03-01,CHO-K1,1,1302,1187,91.2,1302000.0,1187000.0,15.0,0.88,8.2,24.6,50
+SYN-S-005,2026-03-01,CHO-K1,1,980,568,58.0,980000.0,568000.0,16.4,0.74,7.4,28.1,50
+SYN-UNMATCHED-999,2026-03-01,CHO-K1,1,1100,1045,95.0,1100000.0,1045000.0,14.9,0.89,8.0,22.0,50

@@ -64,6 +64,14 @@ class Settings(BaseSettings):
     vina_receptor_pdbqt: str = ""
     vina_center: tuple[float, float, float] = (0.0, 0.0, 0.0)
     vina_size: tuple[float, float, float] = (20.0, 20.0, 20.0)
+    # Lab fabric. Empty buckets keep the local landing zone and lake active.
+    lab_landing_dir: str = "./storage/lab/landing"
+    lab_lake_dir: str = "./storage/lab/lake"
+    lab_dossier_dir: str = "./storage/lab/dossiers"
+    lab_landing_bucket: str = ""
+    lab_lake_bucket: str = ""
+    lab_emit_experiment_completed: bool = False
+    lab_secret_backend: str = "env"
 
     model_config = SettingsConfigDict(
         env_file=[str(p) for p in _ENV_FILES if p.exists()],

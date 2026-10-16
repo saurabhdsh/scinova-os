@@ -18,6 +18,7 @@ backend/scinova.db
 backend/storage/uploads/*
 !backend/storage/uploads/.gitkeep
 backend/storage/chroma/
+backend/storage/lab/
 
 # Secrets
 *.pem
