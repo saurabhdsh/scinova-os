@@ -183,6 +183,7 @@ class WorkflowTemplate(Base):
     description = Column(Text)
     value_chain_stage = Column(String(64))
     steps_json = Column(JSON, default=list)
+    created_by = Column(String, ForeignKey("users.id"), index=True)
 
 
 class WorkflowRun(Base):

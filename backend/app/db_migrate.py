@@ -45,6 +45,7 @@ def run_migrations(engine) -> None:
         _add_column_if_missing(engine, table, "project_id")
 
     _add_column_if_missing(engine, "agent_task_settings", "user_id")
+    _add_column_if_missing(engine, "workflow_templates", "created_by")
 
     # Assign orphan rows to first admin user
     with engine.begin() as conn:

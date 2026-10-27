@@ -284,9 +284,22 @@ class WorkflowTemplateResponse(BaseModel):
     description: Optional[str] = None
     value_chain_stage: Optional[str] = None
     steps_json: list
+    created_by: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class WorkflowSkillSelection(BaseModel):
+    id: str = Field(min_length=1, max_length=64)
+    instruction: Optional[str] = None
+
+
+class WorkflowTemplateCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=256)
+    description: Optional[str] = None
+    agent_ids: list[str] = Field(min_length=2, max_length=12)
+    agent_skills: dict[str, list[WorkflowSkillSelection]] = Field(default_factory=dict)
 
 
 class WorkflowRunRequest(BaseModel):

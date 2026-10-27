@@ -25,7 +25,7 @@ from app.models.schemas import (
     ScientificEntityResponse, ScientificReportResponse, AgentTaskSettingsResponse,
     AgentToolFabricBindingsResponse,
     AgentTaskSettingsUpdate, WorkflowRunRequest,
-    WorkflowRunResponse, WorkflowTemplateResponse, QuotaStatusResponse,
+    WorkflowRunResponse, WorkflowTemplateCreate, WorkflowTemplateResponse, QuotaStatusResponse,
     DocumentQCResponse, MeetingBriefRequest, CollaborationActivityResponse,
     ProjectCreateRequest, ProjectMemberAddRequest, ProjectResponse, ProjectMemberResponse,
     DockingRequest, LimsSyncRequest,
@@ -46,6 +46,7 @@ from app.services.ingestion_pipeline import (
 from app.services.model_router import route_model
 from app.services.workflow_orchestrator import execute_workflow_run, resume_workflow, run_workflow
 from app.services.workflow_pipelines import list_workflow_pipelines
+from app.services.workflow_skills import PIPELINE_SKILLS, resolve_skills
 from app.services.workflow_export_service import (
     build_step_markdown,
     build_workflow_json_bytes,
@@ -737,6 +738,77 @@ def get_workflow_pipelines(db: Session = Depends(get_db)):
 @router.get("/workflows/templates", response_model=list[WorkflowTemplateResponse])
 def list_workflow_templates(db: Session = Depends(get_db)):
     return db.query(WorkflowTemplate).all()
+
+
+@router.post("/workflows/templates", response_model=WorkflowTemplateResponse)
+def create_workflow_template(
+    body: WorkflowTemplateCreate,
+    current_user: CurrentUser,
+    db: Session = Depends(get_db),
+):
+    ordered_ids = []
+    seen = set()
+    for agent_id in body.agent_ids:
+        if agent_id in seen:
+            continue
+        seen.add(agent_id)
+        ordered_ids.append(agent_id)
+    if len(ordered_ids) < 2:
+        raise HTTPException(422, "Choose at least two agents")
+
+    agents = db.query(Agent).filter(Agent.id.in_(ordered_ids)).all()
+    by_id = {agent.id: agent for agent in agents}
+    missing = [agent_id for agent_id in ordered_ids if agent_id not in by_id]
+    if missing:
+        raise HTTPException(422, "One or more selected agents were not found")
+
+    steps = []
+    for index, agent_id in enumerate(ordered_ids):
+        agent = by_id[agent_id]
+        steps.append({
+            "agent": agent.name,
+            "order": index + 1,
+            "requires_approval": bool(agent.human_approval_required),
+            "skills": resolve_skills(body.agent_skills.get(agent_id, [])),
+        })
+    template = WorkflowTemplate(
+        name=body.name.strip(),
+        description=(body.description or "").strip() or f"Custom pipeline designed by {current_user.username}",
+        value_chain_stage="Custom",
+        steps_json=steps,
+        created_by=current_user.id,
+    )
+    db.add(template)
+    db.commit()
+    db.refresh(template)
+    return template
+
+
+@router.get("/workflows/skills")
+def list_workflow_skills(current_user: CurrentUser):
+    return list(PIPELINE_SKILLS)
+
+
+@router.delete("/workflows/templates/{template_id}")
+def delete_workflow_template(
+    template_id: str,
+    current_user: CurrentUser,
+    db: Session = Depends(get_db),
+):
+    template = db.query(WorkflowTemplate).filter(WorkflowTemplate.id == template_id).first()
+    if template is None:
+        raise HTTPException(404, "Workflow not found")
+    if template.value_chain_stage != "Custom" or not template.created_by:
+        raise HTTPException(403, "Default workflows cannot be deleted")
+    if template.created_by != current_user.id and current_user.role != "admin":
+        raise HTTPException(403, "You can delete only a workflow you designed")
+    db.query(WorkflowRun).filter(WorkflowRun.template_id == template.id).update(
+        {WorkflowRun.template_id: None},
+        synchronize_session=False,
+    )
+    db.delete(template)
+    db.commit()
+    return {"deleted": True, "id": template_id}
 
 
 @router.post("/workflows/run", response_model=WorkflowRunResponse)

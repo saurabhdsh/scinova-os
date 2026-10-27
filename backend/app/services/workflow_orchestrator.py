@@ -16,6 +16,7 @@ from app.services.model_router import route_model
 from app.services.agent_capabilities import get_specialized_task_type
 from app.services.rag_service import agent_supports_rag
 from app.services.workflow_pipelines import finalize_workflow_report
+from app.services.workflow_skills import skill_instructions
 from app.services.llm_output_utils import coerce_text, pick_text
 from app.services.output_style import polish_prose
 
@@ -292,4 +293,5 @@ def _build_step_input(input_data: dict, step: dict, prior_steps: list, agent: Ag
         "top_k": 6,
         "document_id": input_data.get("document_id"),
         "auto_approve": input_data.get("auto_approve", False),
+        "custom_instructions": skill_instructions(step.get("skills") or []),
     }

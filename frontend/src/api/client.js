@@ -56,6 +56,9 @@ export const ragQuery = (data) => api.post('/rag/query', data);
 export const getAgentRuns = (id) => api.get(`/agents/${id}/runs`);
 
 export const getWorkflowTemplates = () => api.get('/workflows/templates');
+export const createWorkflowTemplate = (data) => api.post('/workflows/templates', data);
+export const deleteWorkflowTemplate = (id) => api.delete(`/workflows/templates/${id}`);
+export const getWorkflowSkills = () => api.get('/workflows/skills');
 export const getWorkflowPipelines = () => api.get('/workflows/pipelines');
 export const runWorkflow = (data) => api.post('/workflows/run', data);
 export const getWorkflowStatus = (id) => api.get(`/workflows/${id}/status`);
