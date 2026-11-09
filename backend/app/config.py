@@ -49,6 +49,8 @@ class Settings(BaseSettings):
     bedrock_model_id: str = ""  # BEDROCK_MODEL_ID alias used in Weave/EC2 .env
     bedrock_enabled: bool = False
     default_llm_provider: str = ""
+    # aws | azure | local. Empty keeps the old behavior: Bedrock on Linux when it is selected.
+    scinova_cloud: str = ""
     llm_max_tokens: int = 4096
     mistral_api_key: str = ""
     mistral_base_url: str = "https://api.mistral.ai/v1"

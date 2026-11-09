@@ -8,7 +8,13 @@
 
 set -u
 
-SCINOVA_DIR="${SCINOVA_DIR:-$HOME/scinova-os}"
+if [ -z "${SCINOVA_DIR:-}" ]; then
+  if [ -d "$HOME/SciNova-OS" ]; then
+    SCINOVA_DIR="$HOME/SciNova-OS"
+  else
+    SCINOVA_DIR="$HOME/scinova-os"
+  fi
+fi
 
 PASS=0
 WARN=0
@@ -81,7 +87,7 @@ MEM_GB_INT=$(awk -v g="$MEM_GB" 'BEGIN { print int(g+0.5) }')
 if [ "${MEM_GB_INT:-0}" -ge 16 ]; then
   pass "RAM: ${MEM_GB} GB (>= 16 GB recommended)"
 elif [ "${MEM_GB_INT:-0}" -ge 8 ]; then
-  warn "RAM: ${MEM_GB} GB (8 GB minimum — 16 GB recommended)"
+  warn "RAM: ${MEM_GB} GB (Standard_D2s_v3 / 8 GB is the supported demo size — 16 GB is more comfortable)"
 else
   fail "RAM: ${MEM_GB} GB (need >= 8 GB)"
 fi
@@ -153,6 +159,14 @@ section "4. SciNova .env (OpenAI + Mistral)"
 ENV_FILE="$SCINOVA_DIR/.env"
 if [ -f "$ENV_FILE" ]; then
   pass ".env found at $ENV_FILE"
+  if grep -q '^SCINOVA_CLOUD=azure' "$ENV_FILE" 2>/dev/null; then
+    pass "SCINOVA_CLOUD=azure"
+  else
+    warn "SCINOVA_CLOUD is not azure — Linux hosts otherwise follow the EC2 Bedrock path"
+  fi
+  if grep -qE '^BEDROCK_ENABLED=true' "$ENV_FILE" 2>/dev/null; then
+    warn "BEDROCK_ENABLED=true — this VM has no AWS role; use OpenAI"
+  fi
   if grep -qE '^OPENAI_API_KEY=sk-' "$ENV_FILE" 2>/dev/null; then
     pass "OPENAI_API_KEY set"
   else
@@ -175,7 +189,7 @@ if [ -f "$ENV_FILE" ]; then
     warn "CORS_ORIGINS not in .env — add your http://PUBLIC_IP:5173"
   fi
 else
-  warn "No .env — run: cp .env.example .env && nano .env"
+  warn "No .env — run: bash scripts/setup_azure.sh"
 fi
 
 # ── 5. Docker ────────────────────────────────────────────────────────────────

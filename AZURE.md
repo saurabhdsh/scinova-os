@@ -1,6 +1,8 @@
 # SciNova OS — Complete Azure deployment guide
 
-Deploy SciNova on **one Ubuntu VM** with **Docker Compose**, using your **OpenAI** and **Mistral** API keys.
+The lab VM already exists: **rapid-build-dev-server** at `20.127.186.132` (East US, Ubuntu 24.04, Standard D2s v3). Deploy that host with [docs/deploy_azure_vm.md](./docs/deploy_azure_vm.md). The rest of this file is how to create a new Ubuntu VM.
+
+Deploy SciNova on **one Ubuntu VM** with **Docker Compose**, using your **OpenAI** and **Mistral** API keys. EC2 uses Bedrock; an Azure VM does not have that IAM role.
 
 **Recommended VM:** `Standard_DS3_v2` — 4 vCPU, 14 GB RAM (~$70–100/month if always on).
 

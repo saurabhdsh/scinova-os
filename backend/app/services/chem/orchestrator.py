@@ -756,22 +756,24 @@ def _speak(query: str, result: dict[str, Any]) -> str | None:
 
 
 def _conversation_model() -> str | None:
-    """OpenAI on this Mac. Bedrock on EC2, where that provider is already selected."""
+    """OpenAI on a Mac or an Azure VM. Bedrock on EC2, where that provider is selected."""
     import platform
 
     from app.config import settings
     from app.services.llm_service import is_bedrock_llm_model, is_openai_model, llm_service
 
-    if platform.system() == "Darwin" and llm_service.openai_available:
+    cloud = (settings.scinova_cloud or "").strip().lower()
+    prefer_openai = cloud in {"azure", "local"} or platform.system() == "Darwin"
+    if prefer_openai and llm_service.openai_available:
         model = settings.llm_model
         return model if is_openai_model(model) else "gpt-4o-mini"
-    on_ec2 = platform.system() != "Darwin"
+    on_aws = cloud == "aws" or (cloud == "" and platform.system() != "Darwin")
     bedrock_selected = (
         settings.bedrock_enabled
         or (settings.default_llm_provider or "").strip().lower() == "bedrock"
         or is_bedrock_llm_model(settings.llm_model)
     )
-    if on_ec2 and bedrock_selected and llm_service.bedrock_available:
+    if on_aws and bedrock_selected and llm_service.bedrock_available:
         return settings.bedrock_llm_model or settings.llm_model
     if llm_service.is_configured(settings.llm_model):
         return settings.llm_model

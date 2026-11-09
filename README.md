@@ -62,12 +62,12 @@ cp .env.example .env
 docker compose up -d
 ```
 
-### Option 4: Azure VM (personal account)
+### Option 4: Azure VM
 
-See **[AZURE.md](./AZURE.md)** for portal VM setup, NSG rules, and:
+The current lab VM is `rapid-build-dev-server` (`20.127.186.132`, East US, Ubuntu 24.04, Standard D2s v3). See **[docs/deploy_azure_vm.md](./docs/deploy_azure_vm.md)**. **[AZURE.md](./AZURE.md)** covers creating another VM.
 
 ```bash
-./scripts/deploy-azure.sh
+bash scripts/setup_azure.sh
 ./scripts/preflight-azure.sh
 ```
 
