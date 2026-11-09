@@ -93,6 +93,27 @@ def llm_provider_for_model(model: str | None) -> LLMProvider:
     return "openai"
 
 
+def _sampling_locked(model: str | None) -> bool:
+    """gpt-5 and o-series deployments reject a custom temperature."""
+    name = (model or "").lower()
+    return name.startswith(("gpt-5", "o1", "o3", "o4"))
+
+
+def _message_text(message: dict) -> str:
+    content = message.get("content")
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                parts.append(str(item.get("text") or ""))
+        return "".join(parts).strip()
+    return ""
+
+
 def _provider_for_model(model: str | None) -> tuple[LLMProvider, str, str, str]:
     """Return (provider, base_url, api_key, resolved_model)."""
     resolved = resolve_api_model(model)
@@ -165,28 +186,18 @@ class LLMService:
             provider_name = "Mistral" if provider == "mistral" else "OpenAI"
             logger.warning("%s API key not configured for model %s", provider_name, use_model)
             return None
-        try:
-            with httpx.Client(timeout=90.0) as client:
-                resp = client.post(
-                    f"{base_url}/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": api_model,
-                        "temperature": temperature,
-                        "messages": [
-                            {"role": "system", "content": system_text},
-                            {"role": "user", "content": user},
-                        ],
-                    },
-                )
-                resp.raise_for_status()
-                return resp.json()["choices"][0]["message"]["content"]
-        except Exception as e:
-            logger.warning("LLM chat failed (%s): %s", api_model, e)
-            return None
+        payload = {
+            "model": api_model,
+            "messages": [
+                {"role": "system", "content": system_text},
+                {"role": "user", "content": user},
+            ],
+        }
+        if _sampling_locked(api_model):
+            payload["max_completion_tokens"] = min(int(settings.llm_max_tokens or 4096), 4096)
+        else:
+            payload["temperature"] = temperature
+        return self._post_chat(base_url, api_key, payload)
 
     def chat_json(
         self,
@@ -209,30 +220,40 @@ class LLMService:
 
         payload: dict = {
             "model": api_model,
-            "temperature": temperature,
             "messages": [
                 {"role": "system", "content": system_text},
                 {"role": "user", "content": user},
             ],
         }
+        if _sampling_locked(api_model):
+            payload["max_completion_tokens"] = min(int(settings.llm_max_tokens or 4096), 4096)
+        else:
+            payload["temperature"] = temperature
         if not is_slm_model(use_model) or settings.slm_json_mode:
             payload["response_format"] = {"type": "json_object"}
+        content = self._post_chat(base_url, api_key, payload)
+        return _parse_json_content(content or "")
 
+    def _post_chat(self, base_url: str, api_key: str, payload: dict) -> str | None:
+        url = f"{base_url}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
         try:
-            with httpx.Client(timeout=90.0) as client:
-                resp = client.post(
-                    f"{base_url}/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json=payload,
-                )
-                resp.raise_for_status()
-                content = resp.json()["choices"][0]["message"]["content"]
-                return _parse_json_content(content)
+            with httpx.Client(timeout=120.0) as client:
+                resp = client.post(url, headers=headers, json=payload)
+                if resp.status_code == 400 and any(key in payload for key in ("temperature", "response_format")):
+                    logger.warning("LLM 400 (%s): %s", payload.get("model"), resp.text[:300])
+                    slim = {key: value for key, value in payload.items() if key not in {"temperature", "response_format"}}
+                    resp = client.post(url, headers=headers, json=slim)
+                if resp.status_code >= 400:
+                    logger.warning("LLM chat failed (%s) HTTP %s: %s", payload.get("model"), resp.status_code, resp.text[:300])
+                    return None
+                message = (resp.json().get("choices") or [{}])[0].get("message") or {}
+                return _message_text(message) or None
         except Exception as e:
-            logger.warning("LLM JSON call failed (%s): %s", api_model, e)
+            logger.warning("LLM chat failed (%s): %s", payload.get("model"), e)
             return None
 
     def _bedrock_max_tokens(self, *, json_mode: bool = False) -> int:

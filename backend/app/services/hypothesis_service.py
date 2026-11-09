@@ -86,6 +86,8 @@ Produce the JSON output specified in your instructions. Be comprehensive and evi
         if structured:
             mode = "hypothesis"
             logs.append({"message": "Structured hypothesis output generated"})
+        else:
+            logs.append({"message": f"{inference_model} did not return a hypothesis"})
     else:
         logs.append({"message": "OPENAI_API_KEY not set — returning evidence summary only"})
 
@@ -97,10 +99,16 @@ Produce the JSON output specified in your instructions. Be comprehensive and evi
             "suggested_experiments": ["Literature review", "In vitro validation assay"],
             "confidence": 0.4,
         }]
-        answer = (
-            "**Evidence retrieved** (configure OPENAI_API_KEY for full hypothesis generation)\n\n"
-            + context[:2000]
-        )
+        if llm_service.is_configured(inference_model):
+            answer = (
+                f"**{inference_model} did not return a hypothesis.** The evidence below was retrieved.\n\n"
+                + context[:2000]
+            )
+        else:
+            answer = (
+                "**Evidence retrieved** (configure OPENAI_API_KEY for full hypothesis generation)\n\n"
+                + context[:2000]
+            )
         structured = {"summary": answer[:300], "hypotheses": hypotheses, "gaps": [], "answer": answer}
 
     answer = pick_text(structured, "answer", "summary")
