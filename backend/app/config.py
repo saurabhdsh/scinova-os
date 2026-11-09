@@ -72,6 +72,12 @@ class Settings(BaseSettings):
     lab_lake_bucket: str = ""
     lab_emit_experiment_completed: bool = False
     lab_secret_backend: str = "env"
+    # Placeholder bioactives stay out of a live session unless this is turned on.
+    chem_allow_demo_actives: bool = False
+    # Generation counts above this wait for an explicit scientist approval.
+    chem_campaign_approval_above: int = 24
+    # Optional LLM refinement for ambiguous intents. Locks still win.
+    chem_intent_llm: bool = True
 
     model_config = SettingsConfigDict(
         env_file=[str(p) for p in _ENV_FILES if p.exists()],

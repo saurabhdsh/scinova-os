@@ -28,10 +28,13 @@ export default function AppShell() {
   const [dockOpen, setDockOpen] = useState(false);
   const location = useLocation();
 
+  const fillPage = location.pathname === '/molecular-studio';
+
   const title = PAGE_TITLES[location.pathname]
     || (location.pathname.startsWith('/settings/users') ? 'User Administration' : null)
     || (location.pathname.startsWith('/settings/tool-fabric') ? 'Tool Fabric Registry' : null)
-    || (location.pathname.startsWith('/agents/run') ? 'Ask & Run Agents' : 'SciNova');
+    || (location.pathname.startsWith('/agents/run') ? 'Ask & Run Agents' : null)
+    || (location.pathname.startsWith('/lab') ? 'My Experiments' : 'SciNova');
 
   return (
     <div className="h-full flex min-h-0">
@@ -44,7 +47,7 @@ export default function AppShell() {
           onDockToggle={() => setDockOpen((v) => !v)}
         />
         <div className="flex-1 flex min-h-0">
-          <main className="flex-1 min-h-0 overflow-y-auto grid-bg">
+          <main className={`flex-1 min-h-0 grid-bg ${fillPage ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'}`}>
             <Outlet context={{ dockOpen, setDockOpen }} />
           </main>
           <RightDock open={dockOpen} onClose={() => setDockOpen(false)}>

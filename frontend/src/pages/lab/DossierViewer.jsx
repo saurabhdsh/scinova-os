@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import GlassPanel from '../../components/ui/GlassPanel';
 import { createLabDossier, downloadLabDossier, getLabDossier, labError } from '../../api/lab';
-import { LabNotice, StatusPill, useLab } from './LabShell';
+import { StatusPill, useLab } from './LabShell';
 
 export default function DossierViewer() {
   const { experimentId, dossierId, setDossierId } = useLab();
@@ -28,7 +28,6 @@ export default function DossierViewer() {
 
   return (
     <div className="space-y-5">
-      <LabNotice />
       <GlassPanel>
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="font-display text-xl">Experiment dossier</h2>

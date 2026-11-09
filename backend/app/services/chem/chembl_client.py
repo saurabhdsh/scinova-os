@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 import httpx
@@ -49,81 +50,257 @@ def _target_chembl_id(uniprot_id: str) -> str | None:
         return None
 
 
-def fetch_actives(uniprot_id: str, limit: int = 25) -> list[dict[str, Any]]:
+def _row_from_activity(act: dict[str, Any], *, target_chembl_id: str) -> dict[str, Any] | None:
+    cid = act.get("molecule_chembl_id")
+    smiles = act.get("canonical_smiles")
+    if not cid or not smiles:
+        return None
+    pchembl = act.get("pchembl_value")
+    try:
+        pchembl_f = float(pchembl) if pchembl is not None else None
+    except (TypeError, ValueError):
+        pchembl_f = None
+    assay_type = act.get("assay_type")
+    standard_type = act.get("standard_type")
+    description = act.get("assay_description") or ""
+    return {
+        "chembl_id": cid,
+        "activity_id": act.get("activity_id"),
+        "target_chembl_id": target_chembl_id,
+        "pref_name": act.get("molecule_pref_name") or cid,
+        "pchembl": pchembl_f,
+        "smiles": smiles,
+        "assay": description or standard_type or "bioactivity",
+        "assay_type": assay_type,
+        "standard_type": standard_type,
+        "standard_relation": act.get("standard_relation"),
+        "standard_value": act.get("standard_value"),
+        "standard_units": act.get("standard_units"),
+        "target_organism": act.get("target_organism"),
+        "modality": _infer_modality(description, standard_type),
+    }
+
+
+def _infer_modality(description: str, standard_type: str | None) -> str | None:
+    text = f"{description} {standard_type or ''}".lower()
+    if "agonist" in text and "antagonist" not in text:
+        return "agonist"
+    if "antagonist" in text:
+        return "antagonist"
+    if "inhibitor" in text or (standard_type or "").upper() in {"IC50", "KI", "KD"}:
+        return None
+    return None
+
+
+_CELLULAR = re.compile(r"\b(cells?|cellular)\b", re.I)
+_PATHWAY_READOUT = re.compile(
+    r"erk|phosphorylation|proliferation|celltiter|viability|reporter",
+    re.I,
+)
+_PURINE = None
+
+
+def activity_relation(row: dict[str, Any]) -> str:
+    """Separate a direct measurement from a probe, a peptide, or a cell-pathway readout."""
+    smiles = row.get("smiles") or ""
+    if _is_nucleotide(smiles):
+        return "nucleotide probe"
+    try:
+        from app.services.chem.novelty import _is_peptide
+
+        if _is_peptide(smiles):
+            return "peptide"
+    except Exception:
+        pass
+    assay = f"{row.get('assay') or ''} {row.get('standard_type') or ''}"
+    if _CELLULAR.search(assay) and _PATHWAY_READOUT.search(assay):
+        return "cellular pathway readout"
+    return "biochemical"
+
+
+def _is_nucleotide(smiles: str) -> bool:
+    """A nucleobase plus a phosphate is a nucleotide probe, not a designed ligand."""
+    try:
+        from rdkit import Chem
+
+        mol = Chem.MolFromSmiles(smiles or "")
+        if mol is None or not any(atom.GetAtomicNum() == 15 for atom in mol.GetAtoms()):
+            return False
+        global _PURINE
+        if _PURINE is None:
+            _PURINE = Chem.MolFromSmarts("[#7]1:[#6]:[#7]:[#6]2:[#7]:[#6]:[#7]:[#6]:[#6]:1:2")
+        return bool(_PURINE is not None and mol.HasSubstructMatch(_PURINE))
+    except Exception:
+        return False
+
+
+def _matches_modality(row: dict[str, Any], modality: str | None) -> bool:
+    if not modality:
+        return True
+    text = f"{row.get('assay') or ''} {row.get('standard_type') or ''}".lower()
+    label = row.get("modality")
+    if modality == "agonist":
+        return label == "agonist" or ("agonist" in text and "antagonist" not in text)
+    if modality == "antagonist":
+        return label == "antagonist" or "antagonist" in text
+    if modality == "inhibitor":
+        return "antagonist" in text or "inhibitor" in text or (row.get("standard_type") or "").upper() in {"IC50", "KI"}
+    return True
+
+
+def fetch_actives_status(
+    uniprot_id: str,
+    limit: int = 25,
+    *,
+    modality: str | None = None,
+) -> tuple[list[dict[str, Any]], str]:
+    """Return activities and a status: ok, empty, no_target, or unavailable."""
     tid = _target_chembl_id(uniprot_id)
     if not tid:
-        return []
+        return [], "no_target"
+    assay_types = ("F", "B") if modality == "agonist" else ("B", "F")
     try:
-        url = "https://www.ebi.ac.uk/chembl/api/data/activity.json"
-        params = {
-            "target_chembl_id": tid,
-            "pchembl_value__gte": 6,
-            "limit": min(limit * 2, 50),
-            "assay_type": "B",
-        }
+        activities: list[dict[str, Any]] = []
         with httpx.Client(timeout=20.0) as client:
-            r = client.get(url, params=params)
-            r.raise_for_status()
-            activities = r.json().get("activities") or []
+            for assay_type in assay_types:
+                params = {
+                    "target_chembl_id": tid,
+                    "pchembl_value__gte": 6,
+                    "limit": min(limit * 2, 50),
+                    "assay_type": assay_type,
+                }
+                response = client.get("https://www.ebi.ac.uk/chembl/api/data/activity.json", params=params)
+                response.raise_for_status()
+                activities.extend(response.json().get("activities") or [])
         rows: list[dict[str, Any]] = []
         seen: set[str] = set()
         for act in activities:
-            cid = act.get("molecule_chembl_id")
-            if not cid or cid in seen:
+            parsed = _row_from_activity(act, target_chembl_id=tid)
+            if not parsed or parsed["chembl_id"] in seen:
                 continue
-            smiles = act.get("canonical_smiles")
-            if not smiles:
-                continue
-            seen.add(cid)
-            pchembl = act.get("pchembl_value")
-            try:
-                pchembl_f = float(pchembl) if pchembl is not None else None
-            except (TypeError, ValueError):
-                pchembl_f = None
-            rows.append({
-                "chembl_id": cid,
-                "pref_name": act.get("molecule_pref_name") or cid,
-                "pchembl": pchembl_f,
-                "smiles": smiles,
-                "assay": act.get("assay_description") or act.get("standard_type") or "bioactivity",
-                "standard_value": act.get("standard_value"),
-                "standard_units": act.get("standard_units"),
-            })
-            if len(rows) >= limit:
-                break
-        rows.sort(key=lambda x: x.get("pchembl") or 0, reverse=True)
-        return rows
+            seen.add(parsed["chembl_id"])
+            parsed["relation"] = activity_relation(parsed)
+            rows.append(parsed)
+        matched = [row for row in rows if _matches_modality(row, modality)] if modality else rows
+        if modality and matched:
+            chosen = matched
+        elif modality:
+            functional = [row for row in rows if row.get("assay_type") == "F"]
+            chosen = functional or rows
+            for row in chosen:
+                row["modality_supported"] = False
+        else:
+            chosen = rows
+        order = {"biochemical": 0, "cellular pathway readout": 1, "peptide": 2, "nucleotide probe": 3}
+        chosen.sort(key=lambda x: (order.get(x.get("relation"), 9), -(x.get("pchembl") or 0)))
+        ligands = [row for row in chosen if row.get("relation") != "nucleotide probe"]
+        return chosen, ("ok" if ligands else "empty")
     except Exception as exc:
         logger.warning("ChEMBL activity fetch failed: %s", exc)
-        return []
+        return [], "unavailable"
 
 
-def discover_known_actives(uniprot_id: str | None, gene_symbol: str | None = None, limit: int = 20) -> dict[str, Any]:
+def fetch_actives(uniprot_id: str, limit: int = 25) -> list[dict[str, Any]]:
+    rows, _status = fetch_actives_status(uniprot_id, limit=limit)
+    ligands = [row for row in rows if row.get("relation") != "nucleotide probe"]
+    return ligands[:limit]
+
+
+def discover_known_actives(
+    uniprot_id: str | None,
+    gene_symbol: str | None = None,
+    limit: int = 20,
+    *,
+    modality: str | None = None,
+) -> dict[str, Any]:
+    from datetime import datetime, timezone
+
+    from app.config import settings
+
     uid = uniprot_id or ""
-    rows = fetch_actives(uid, limit=limit) if uid else []
+    retrieved_at = datetime.now(timezone.utc).isoformat()
+    if uid:
+        rows, status = fetch_actives_status(uid, limit=limit, modality=modality)
+    else:
+        rows, status = [], "no_target"
+    nucleotide_count = sum(1 for row in rows if row.get("relation") == "nucleotide probe")
+    rows = [row for row in rows if row.get("relation") != "nucleotide probe"][:limit]
     source = "chembl"
-    if not rows:
-        rows = list(DEMO_ACTIVES.get(uid) or DEMO_ACTIVES.get("O60674") or [])[:limit]
+    if not rows and settings.chem_allow_demo_actives:
+        rows = [dict(row) for row in (DEMO_ACTIVES.get(uid) or DEMO_ACTIVES.get("O60674") or [])[:limit]]
         source = "demo_curated"
-        for i, row in enumerate(rows):
-            row = dict(row)
-            rows[i] = row
-
+        status = "demo"
     for i, row in enumerate(rows):
         row["rank"] = i + 1
+        row["source"] = source
+        row["retrieved_at"] = retrieved_at
+        row["evidence"] = "measured" if source == "chembl" else "illustrative"
 
-    summary = (
-        f"Retrieved {len(rows)} known actives for {gene_symbol or uid} "
-        f"(ranked by pChEMBL). Source: {source}."
-    )
+    label = gene_symbol or uid or "this protein"
+    if rows and source == "chembl":
+        asked = f" {modality} " if modality else " "
+        summary = (
+            f"Retrieved {len(rows)} known{asked}actives for {label} from ChEMBL, "
+            "with biochemical measurements before cellular pathway readouts and peptides."
+        )
+        counts: dict[str, int] = {}
+        for row in rows:
+            kind = row.get("relation") or "biochemical"
+            counts[kind] = counts.get(kind, 0) + 1
+        narrative = (
+            summary
+            + " Each row keeps its assay type, standard type, and source activity id. "
+            "A pChEMBL value is a standardized activity, not by itself proof of agonism or inhibition. "
+            f"{counts.get('biochemical', 0)} biochemical measurement(s), "
+            f"{counts.get('cellular pathway readout', 0)} cellular pathway readout(s), and "
+            f"{counts.get('peptide', 0)} peptide(s) are in this table. "
+            "A cellular readout such as ERK phosphorylation or proliferation in cells "
+            "can come from an upstream protein and is not direct binding to this target. "
+            f"{nucleotide_count} nucleotide probe(s) were left out of the table."
+        )
+        if (gene_symbol or "").upper().startswith("GLP"):
+            narrative += (
+                " GLP1R is a class B GPCR. Peptide and small-molecule ligands, agonists and antagonists, "
+                "and binding affinity versus functional potency are different observations and are not collapsed here."
+            )
+        if modality == "agonist" and any(row.get("modality") == "agonist" for row in rows):
+            narrative += " Rows were kept when the assay text indicated agonism. They are not labeled as inhibitors."
+        elif modality == "agonist":
+            narrative += (
+                " No assay description explicitly marked these rows as agonists. "
+                "They remain unlabeled activities and are not called inhibitors."
+            )
+        elif modality == "inhibitor":
+            narrative += " Inhibitor here means the assay text or standard type supports inhibition or binding, not agonism."
+    elif rows and source == "demo_curated":
+        summary = f"Demo mode returned {len(rows)} placeholder actives for {label}. These are not a live ChEMBL result."
+        narrative = summary
+    elif status == "unavailable":
+        summary = f"ChEMBL could not be reached for {label}. No substitute compounds were added."
+        narrative = summary
+    elif status == "no_target":
+        summary = f"ChEMBL has no target mapping for {label}. No substitute compounds were added."
+        narrative = summary
+    else:
+        summary = f"ChEMBL returned no activities at the requested cutoff for {label}. No substitute compounds were added."
+        narrative = summary
     return {
         "capability": "C2",
         "capability_name": "Known Bioactive Discovery",
         "summary": summary,
-        "narrative": summary,
+        "narrative": narrative,
         "actives": rows,
         "uniprot_id": uid,
         "source": source,
+        "retrieval_status": status,
+        "retrieved_at": retrieved_at,
+        "provenance": {
+            "source": source,
+            "status": status,
+            "retrieved_at": retrieved_at,
+            "tool": "ChEMBL",
+            "kind": "measured" if source == "chembl" and rows else "unavailable",
+        },
         "tools_used": ["ChEMBL"],
-        "parameters": {"uniprot_id": uid, "limit": limit},
+        "parameters": {"uniprot_id": uid, "limit": limit, "pchembl_gte": 6, "assay_types": ["B", "F"], "modality": modality},
     }

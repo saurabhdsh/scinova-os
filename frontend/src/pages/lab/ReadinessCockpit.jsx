@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import GlassPanel from '../../components/ui/GlassPanel';
 import { evaluateReadiness, getLabIssues, labError, resolveLabIssue } from '../../api/lab';
-import { LabNotice, StatusPill, useLab } from './LabShell';
+import { StatusPill, useLab } from './LabShell';
 
 export default function ReadinessCockpit() {
   const { experimentId } = useLab();
@@ -40,7 +40,6 @@ export default function ReadinessCockpit() {
 
   return (
     <div className="space-y-5">
-      <LabNotice />
       <GlassPanel>
         <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim">Moment 2 — readiness and compliance</p>
         <h2 className="font-display text-xl mt-1">Seeded issues require an explicit decision</h2>

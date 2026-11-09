@@ -11,6 +11,7 @@ function saveBlob(blob, filename) {
 
 export const getLabOverview = () => api.get('/lab/overview');
 export const getLabProtocols = () => api.get('/lab/protocols');
+export const createLabProtocol = (data) => api.post('/lab/protocols', data);
 export const getLabExperiments = () => api.get('/lab/experiments');
 export const getLabExperiment = (id) => api.get(`/lab/experiments/${id}`);
 export const createLabPlan = (data) => api.post('/lab/plans', data);
@@ -34,6 +35,8 @@ export const lookupOntology = (q) => api.get('/lab/ontology/lookup', { params: {
 export const getLabAudit = (entityRef) => api.get(`/lab/audit/${entityRef}`);
 export const getLabAgents = () => api.get('/lab/agents');
 export const getLabAgentHealth = (agentId) => api.get(`/lab/agents/${agentId}/health`);
+export const askLabAssistant = (data) => api.post('/lab/assistant/ask', data);
+export const draftLabPlanFromIntent = (data) => api.post('/lab/assistant/draft', data);
 export const getLabJob = (jobId) => api.get(`/lab/agents/jobs/${jobId}`);
 export const invokeLabAgent = (agentId, data, idempotencyKey) => api.post(`/lab/agents/${agentId}/invoke`, data, {
   headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {},
@@ -47,9 +50,17 @@ export const ingestLabFile = (experimentId, file) => {
   });
 };
 
-export async function fetchVicellFixtureFile() {
-  const response = await api.get('/lab/fixtures/vicell-current.csv', { responseType: 'blob' });
-  return new File([response.data], 'vicell-current-synthetic.csv', { type: 'text/csv' });
+export async function fetchVicellFixtureFile(experimentId) {
+  const planned = Boolean(experimentId);
+  const response = await api.get(planned ? '/lab/fixtures/vicell-planned.csv' : '/lab/fixtures/vicell-current.csv', {
+    params: planned ? { experiment_id: experimentId } : undefined,
+    responseType: 'blob',
+  });
+  return new File(
+    [response.data],
+    planned ? 'vicell-planned-synthetic.csv' : 'vicell-current-synthetic.csv',
+    { type: 'text/csv' },
+  );
 }
 
 export async function downloadLabDossier(dossierId, format = 'pdf') {

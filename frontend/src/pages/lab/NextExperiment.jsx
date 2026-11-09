@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import GlassPanel from '../../components/ui/GlassPanel';
 import { createFollowUp, getLabWhatIf, labError } from '../../api/lab';
-import { LabNotice, StatusPill, useLab } from './LabShell';
+import { StatusPill, useLab } from './LabShell';
 
 export default function NextExperiment() {
   const { experimentId } = useLab();
@@ -33,7 +33,6 @@ export default function NextExperiment() {
 
   return (
     <div className="space-y-5">
-      <LabNotice />
       <GlassPanel>
         <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim">Moment 5 — learning and next experiment</p>
         <h2 className="font-display text-xl mt-1">LAB-A1 consumes the cited insight</h2>

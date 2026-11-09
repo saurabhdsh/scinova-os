@@ -10,6 +10,7 @@ from app.lab.adapters import eln_adapter
 from app.lab.audit import record
 from app.lab.errors import LabError
 from app.lab.graph_bridge import link, publish
+from app.lab.catalog import DEFAULT_PARAMETERS, EXPECTED_READOUTS, SAMPLE_PANEL, SUCCESS_CRITERIA
 from app.lab.models import (
     LabComplianceRule,
     LabExperiment,
@@ -17,6 +18,7 @@ from app.lab.models import (
     LabGateDecision,
     LabInstrument,
     LabLot,
+    LabProtocol,
     LabProtocolVersion,
     LabReadinessIssue,
     LabRun,
@@ -29,6 +31,100 @@ from app.lab.rules import load_rules
 from app.models.db_models import GraphNode
 
 
+def create_protocol(
+    db: Session,
+    *,
+    actor: str,
+    title: str,
+    parameters: dict | None = None,
+    success_criteria: list | None = None,
+    exact: bool = False,
+) -> dict:
+    name = (title or "").strip()
+    if not name:
+        raise LabError("A protocol needs a name.", status_code=422, code="protocol_name_required")
+    template = _template_version(db)
+    if exact:
+        merged = {
+            str(key): value
+            for key, value in (parameters or {}).items()
+            if not str(key).startswith("_")
+        }
+        criteria = list(success_criteria or [])
+        sample_name = str(merged.get("sample_type") or name)[:80]
+        samples = [{
+            "sample_code": "SAMPLE-001",
+            "cell_line": sample_name,
+            "qc_status": "pass",
+            "lineage": {"data_origin": "scientist"},
+        }]
+        readouts = [item.get("metric") for item in criteria if isinstance(item, dict) and item.get("metric")] or ["result"]
+    else:
+        merged = dict((template.parameters_json if template else None) or DEFAULT_PARAMETERS)
+        if parameters:
+            merged.update(parameters)
+        criteria = list((template.success_criteria_json if template else None) or SUCCESS_CRITERIA)
+        if isinstance(success_criteria, list) and success_criteria:
+            criteria = list(success_criteria)
+        samples = [dict(row) for row in ((template.sample_panel_json if template else None) or SAMPLE_PANEL)]
+        readouts = list((template.expected_readouts_json if template else None) or EXPECTED_READOUTS)
+    protocol = LabProtocol(
+        code=_protocol_code(db, name),
+        title=name,
+        status="approved",
+        summary=name,
+        data_origin="scientist",
+        created_by=actor,
+    )
+    db.add(protocol)
+    db.flush()
+    version = LabProtocolVersion(
+        protocol_id=protocol.id,
+        version_label="1.0",
+        version_number=1,
+        status="approved",
+        parameters_json=merged,
+        success_criteria_json=criteria,
+        sample_panel_json=samples,
+        expected_readouts_json=readouts,
+        data_origin="scientist",
+        created_by=actor,
+    )
+    db.add(version)
+    db.flush()
+    if template is not None:
+        for row in db.query(LabTrainingRecord).filter(LabTrainingRecord.protocol_id == template.protocol_id).all():
+            db.add(
+                LabTrainingRecord(
+                    person_name=row.person_name,
+                    protocol_id=protocol.id,
+                    qualified=row.qualified,
+                    gap_reason=row.gap_reason,
+                    data_origin="scientist",
+                    created_by=actor,
+                )
+            )
+        db.flush()
+    publish(db, protocol, entity_type="Protocol", label=protocol.code, document_id=None)
+    version_node = publish(db, version, entity_type="ProtocolVersion", label=f"{protocol.code} {version.version_label}", document_id=None)
+    link(db, version_node, db.get(GraphNode, protocol.graph_node_id), "VERSION_OF")
+    record(
+        db,
+        event_type="protocol_created",
+        actor=actor,
+        resource_type="protocol",
+        resource_id=protocol.id,
+        action="Scientist created a protocol",
+        details={"code": protocol.code, "title": protocol.title},
+    )
+    from app.lab.serialize import dump
+
+    body = dump(version)
+    body["protocol_code"] = protocol.code
+    body["protocol_title"] = protocol.title
+    return body
+
+
 def create_plan(
     db: Session,
     *,
@@ -36,6 +132,7 @@ def create_plan(
     actor: str,
     title: str | None = None,
     parameters: dict | None = None,
+    success_criteria: list | None = None,
 ) -> LabExperimentPlan:
     version = db.get(LabProtocolVersion, protocol_version_id)
     if version is None:
@@ -45,12 +142,15 @@ def create_plan(
     merged = dict(version.parameters_json or {})
     if parameters:
         merged.update(parameters)
+    criteria = list(version.success_criteria_json or [])
+    if isinstance(success_criteria, list) and success_criteria:
+        criteria = list(success_criteria)
     plan = LabExperimentPlan(
         protocol_version_id=version.id,
         title=title or f"Plan from {version.version_label}",
         status="draft",
         parameters_json=merged,
-        success_criteria_json=list(version.success_criteria_json or []),
+        success_criteria_json=criteria,
         sample_panel_json=list(version.sample_panel_json or []),
         expected_readouts_json=list(version.expected_readouts_json or []),
         cited_insight_ids_json=[],
@@ -74,7 +174,7 @@ def create_plan(
     return plan
 
 
-def approve_plan(db: Session, plan_id: str, actor: str, comment: str | None = None) -> LabExperiment:
+def approve_plan(db: Session, plan_id: str, actor: str, comment: str | None = None, title: str | None = None) -> LabExperiment:
     plan = db.get(LabExperimentPlan, plan_id)
     if plan is None:
         raise LabError("Plan not found.", status_code=404, code="not_found")
@@ -84,6 +184,8 @@ def approve_plan(db: Session, plan_id: str, actor: str, comment: str | None = No
             return existing
     if plan.status != "draft":
         raise LabError(f"Plan cannot be approved from status {plan.status}.", status_code=409, code="gate_closed")
+    if title and title.strip():
+        plan.title = title.strip()
     plan.status = "approved"
     version = db.get(LabProtocolVersion, plan.protocol_version_id)
     experiment = LabExperiment(
@@ -229,6 +331,17 @@ def evaluate_readiness(db: Session, experiment_id: str, actor: str) -> list[LabR
         alternate = next((row for row in qualified if row.person_name == "Priya Nair"), None)
         if alternate is None and qualified:
             alternate = qualified[0]
+        if alternate is None:
+            fallback = (
+                db.query(LabTrainingRecord)
+                .filter(LabTrainingRecord.qualified.is_(True), LabTrainingRecord.person_name != operator)
+                .all()
+            )
+            alternate = next((row for row in fallback if row.person_name == "Priya Nair"), None)
+            if alternate is None:
+                alternate = next((row for row in fallback if row.person_name == "Sarah Chen"), None)
+            if alternate is None and fallback:
+                alternate = fallback[0]
         created.append(
             _issue(
                 db,
@@ -385,10 +498,20 @@ def create_follow_up(db: Session, experiment_id: str, actor: str) -> LabExperime
     preview = what_if(db, experiment_id)
     if not preview["change"]:
         raise LabError("The recommendation does not change a parameter.", status_code=409, code="no_parameter_change")
+    existing = (
+        db.query(LabExperimentPlan)
+        .filter(LabExperimentPlan.parent_plan_id == plan.id, LabExperimentPlan.status == "draft")
+        .order_by(LabExperimentPlan.created_at.desc())
+        .first()
+    )
+    if existing is not None:
+        if str(existing.title or "").startswith("Follow-up plan citing"):
+            existing.title = _follow_up_title(experiment.title, preview["change"]["to"])
+        return existing
     version = db.get(LabProtocolVersion, plan.protocol_version_id)
     follow = LabExperimentPlan(
         protocol_version_id=plan.protocol_version_id,
-        title=f"Follow-up plan citing {insight.rule_id}",
+        title=_follow_up_title(experiment.title, preview["change"]["to"]),
         status="draft",
         parameters_json=preview["proposed_parameters"],
         success_criteria_json=list(plan.success_criteria_json or []),
@@ -454,7 +577,12 @@ def storyline(db: Session, experiment_id: str) -> dict:
     moments = {
         "moment_1_planning": {"complete": plan.status == "approved", "plan_id": plan.id, "plan_status": plan.status},
         "moment_2_readiness": {
-            "complete": bool(issues) and not open_blocking,
+            "complete": not open_blocking and (
+                bool(issues)
+                or experiment.status in {"ready_for_ingestion", "results_ready", "completed"}
+                or experiment.outcome is not None
+                or bool(raw and raw.checksum_verified)
+            ),
             "open_blocking": len(open_blocking),
             "issue_count": len(issues),
         },
@@ -465,7 +593,7 @@ def storyline(db: Session, experiment_id: str) -> dict:
             "completeness_percent": _run(db, experiment_id).completeness_percent,
         },
         "moment_4_results": {
-            "complete": dossier is not None and experiment.outcome is not None,
+            "complete": experiment.outcome is not None,
             "outcome": experiment.outcome,
             "dossier_id": dossier.id if dossier else None,
             "dossier_status": dossier.status if dossier else None,
@@ -500,6 +628,16 @@ def _issue(db, experiment, *, agent_id, code, message, recommendation, actor) ->
         .first()
     )
     if existing:
+        current = existing.recommendation_json or {}
+        incoming = recommendation or {}
+        missing_target = (
+            (incoming.get("action") == "assign_alternate" and not current.get("operator_name") and incoming.get("operator_name"))
+            or (incoming.get("action") == "swap_lot" and not current.get("lot_number") and incoming.get("lot_number"))
+            or (incoming.get("action") == "use_alternate_instrument" and not current.get("instrument_serial") and incoming.get("instrument_serial"))
+        )
+        if missing_target:
+            existing.recommendation_json = incoming
+            existing.message = message
         return existing
     row = LabReadinessIssue(
         experiment_id=experiment.id,
@@ -547,6 +685,40 @@ def _record_gate(db, *, gate, experiment_id, entity_type, entity_id, decision, a
         details={"gate": gate, "decision": decision, "experiment_id": experiment_id, "comment": comment, "version": version},
     )
     return row
+
+
+def _follow_up_title(experiment_title: str, proposed) -> str:
+    base = experiment_title or "Next experiment"
+    try:
+        seeding_label = f"{int(round(float(proposed))):,}"
+    except (TypeError, ValueError):
+        return base
+    return f"{base} · seeding {seeding_label}"
+
+
+def _template_version(db: Session) -> LabProtocolVersion | None:
+    primary = db.query(LabProtocol).filter(LabProtocol.code == "SYN-CVP-001").first()
+    if primary is None:
+        return db.query(LabProtocolVersion).order_by(LabProtocolVersion.created_at.asc()).first()
+    return (
+        db.query(LabProtocolVersion)
+        .filter(LabProtocolVersion.protocol_id == primary.id)
+        .order_by(LabProtocolVersion.version_number.desc())
+        .first()
+    )
+
+
+def _protocol_code(db: Session, title: str) -> str:
+    letters = "".join(ch if ch.isalnum() else "-" for ch in title.upper())
+    base = "-".join(part for part in letters.split("-") if part)[:24] or "PROTOCOL"
+    if not base.startswith("LAB-"):
+        base = f"LAB-{base}"
+    code = base
+    suffix = 2
+    while db.query(LabProtocol).filter(LabProtocol.code == code).first():
+        code = f"{base}-{suffix}"
+        suffix += 1
+    return code
 
 
 def _link_plan_to_protocol(db, plan, version):

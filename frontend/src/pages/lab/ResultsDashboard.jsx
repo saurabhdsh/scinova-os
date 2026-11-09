@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Bar, BarChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import GlassPanel from '../../components/ui/GlassPanel';
 import { compileLabResults, getLabIngestion, getLabResults, labError } from '../../api/lab';
-import { LabNotice, StatusPill, useLab } from './LabShell';
+import { StatusPill, useLab } from './LabShell';
 
 export default function ResultsDashboard() {
   const { experimentId } = useLab();
@@ -35,7 +35,6 @@ export default function ResultsDashboard() {
 
   return (
     <div className="space-y-5">
-      <LabNotice />
       <GlassPanel>
         <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim">Moment 4 — scientific results</p>
         <div className="mt-3 flex items-center gap-3">

@@ -19,6 +19,7 @@ backend/storage/uploads/*
 !backend/storage/uploads/.gitkeep
 backend/storage/chroma/
 backend/storage/lab/
+backend/storage/chem_sessions/
 
 # Secrets
 *.pem

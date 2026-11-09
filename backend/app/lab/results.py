@@ -24,68 +24,76 @@ def compile_results(db: Session, experiment_id: str, actor: str) -> dict:
     if experiment is None:
         raise LabError("Experiment not found.", status_code=404, code="not_found")
     plan = db.get(LabExperimentPlan, experiment.plan_id)
+    criteria = {item["id"]: item for item in (plan.success_criteria_json or []) if isinstance(item, dict)}
+    plan_metrics = [item.get("metric") for item in criteria.values()]
+    sequencing = bool(plan_metrics) and not any(metric in {"mean_viability_percent", "cv_percent"} for metric in plan_metrics)
+    readout_filter = LabMeasurement.readout_key.in_(plan_metrics) if sequencing else (LabMeasurement.readout_key == "viability_percent")
     measurements = (
         db.query(LabMeasurement)
         .filter(
             LabMeasurement.experiment_id == experiment_id,
             LabMeasurement.status == "active",
             LabMeasurement.sample_id.isnot(None),
-            LabMeasurement.readout_key == "viability_percent",
+            readout_filter,
         )
         .all()
     )
     if not measurements:
-        raise LabError("No matched viability measurements are available to compile.", status_code=409, code="no_measurements")
+        missing = "sequencing" if sequencing else "viability"
+        raise LabError(f"No matched {missing} measurements are available to compile.", status_code=409, code="no_measurements")
 
     _supersede(db, LabResult, experiment_id)
     _supersede(db, LabInsight, experiment_id)
 
-    values = [item.value for item in measurements]
-    ids = [item.id for item in measurements]
-    avg = round_sci(mean(values), 4)
-    cv = round_sci(coefficient_of_variation(values), 4)
-    rules = load_rules(db)
-    criteria = {item["id"]: item for item in (plan.success_criteria_json or [])}
-    metric_values = {"mean_viability_percent": avg, "cv_percent": cv}
-    results = []
-    for metric, value in metric_values.items():
-        criterion = next((item for item in criteria.values() if item.get("metric") == metric), None)
-        if criterion is None and metric == "cv_percent":
-            rule = rules["LAB-RULE-CV-001"]
-            criterion = {"id": rule["id"], "metric": metric, "operator": "<=", "threshold": rule["threshold"], "unit": rule["unit"]}
-            # A missing plan criterion still records the statistic, but only plan criteria decide pass/fail.
-            passed = None
-            outcome = "not_applicable"
-        else:
-            passed = compare(criterion["operator"], value, float(criterion["threshold"])) if criterion else None
-            outcome = outcome_label(passed) if passed is not None else "not_applicable"
-        result = LabResult(
-            experiment_id=experiment_id,
-            metric=metric,
-            value=value,
-            unit=(criterion or {}).get("unit", "percent"),
-            criterion_id=(criterion or {}).get("id"),
-            operator=(criterion or {}).get("operator"),
-            threshold=(criterion or {}).get("threshold"),
-            outcome=outcome,
-            measurement_ids_json=ids,
-            calculation_json={
-                "method": "sample_cv_percent" if metric == "cv_percent" else "arithmetic_mean",
-                "n": len(values),
-                "values": values,
-                "measurement_ids": ids,
-                "data_origin": "synthetic",
-            },
-            produced_by="LAB-A6",
-            data_origin="synthetic",
-            created_by=actor,
-        )
-        db.add(result)
-        results.append(result)
+    if sequencing:
+        results = _compile_plan_metrics(db, experiment, measurements, list(criteria.values()), actor)
+        insights = _sequencing_findings(db, experiment, results, actor)
+        history = []
+    else:
+        values = [item.value for item in measurements]
+        ids = [item.id for item in measurements]
+        avg = round_sci(mean(values), 4)
+        cv = round_sci(coefficient_of_variation(values), 4)
+        rules = load_rules(db)
+        metric_values = {"mean_viability_percent": avg, "cv_percent": cv}
+        results = []
+        for metric, value in metric_values.items():
+            criterion = next((item for item in criteria.values() if item.get("metric") == metric), None)
+            if criterion is None and metric == "cv_percent":
+                rule = rules["LAB-RULE-CV-001"]
+                criterion = {"id": rule["id"], "metric": metric, "operator": "<=", "threshold": rule["threshold"], "unit": rule["unit"]}
+                passed = None
+                outcome = "not_applicable"
+            else:
+                passed = compare(criterion["operator"], value, float(criterion["threshold"])) if criterion else None
+                outcome = outcome_label(passed) if passed is not None else "not_applicable"
+            result = LabResult(
+                experiment_id=experiment_id,
+                metric=metric,
+                value=value,
+                unit=(criterion or {}).get("unit", "percent"),
+                criterion_id=(criterion or {}).get("id"),
+                operator=(criterion or {}).get("operator"),
+                threshold=(criterion or {}).get("threshold"),
+                outcome=outcome,
+                measurement_ids_json=ids,
+                calculation_json={
+                    "method": "sample_cv_percent" if metric == "cv_percent" else "arithmetic_mean",
+                    "n": len(values),
+                    "values": values,
+                    "measurement_ids": ids,
+                    "data_origin": "synthetic",
+                },
+                produced_by="LAB-A6",
+                data_origin="synthetic",
+                created_by=actor,
+            )
+            db.add(result)
+            results.append(result)
+        db.flush()
+        history = _historical_means(db, experiment, plan)
+        insights = _insights(db, experiment, measurements, results, history, rules, actor)
     db.flush()
-
-    history = _historical_means(db, experiment, plan)
-    insights = _insights(db, experiment, measurements, results, history, rules, actor)
     for result in results:
         node = publish(
             db,
@@ -142,6 +150,86 @@ def compile_results(db: Session, experiment_id: str, actor: str) -> dict:
         "historical_comparator_ids": [item["experiment_id"] for item in history],
         "data_origin": "synthetic",
     }
+
+
+def _compile_plan_metrics(db, experiment, measurements, criteria, actor) -> list[LabResult]:
+    results = []
+    for criterion in criteria:
+        metric = criterion.get("metric")
+        matched = [item for item in measurements if item.readout_key == metric]
+        if not matched:
+            continue
+        values = [item.value for item in matched]
+        ids = [item.id for item in matched]
+        value = round_sci(mean(values), 4)
+        passed = compare(criterion.get("operator"), value, float(criterion["threshold"])) if criterion.get("operator") else None
+        result = LabResult(
+            experiment_id=experiment.id,
+            metric=metric,
+            value=value,
+            unit=criterion.get("unit") or "x",
+            criterion_id=criterion.get("id"),
+            operator=criterion.get("operator"),
+            threshold=criterion.get("threshold"),
+            outcome=outcome_label(passed) if passed is not None else "not_applicable",
+            measurement_ids_json=ids,
+            calculation_json={
+                "method": "arithmetic_mean",
+                "n": len(values),
+                "values": values,
+                "measurement_ids": ids,
+                "data_origin": "synthetic",
+            },
+            produced_by="LAB-A6",
+            data_origin="synthetic",
+            created_by=actor,
+        )
+        db.add(result)
+        results.append(result)
+    db.flush()
+    return results
+
+
+def _sequencing_findings(db, experiment, results, actor) -> list[LabInsight]:
+    created = []
+    failed = [item for item in results if item.outcome == "fail"]
+    if failed:
+        for item in failed:
+            created.append(
+                _insight(
+                    db,
+                    experiment,
+                    actor,
+                    insight_type="anomaly",
+                    rule_id=item.criterion_id or "LAB-RULE-SEQ-001",
+                    title="Sequencing criterion missed",
+                    statement=(
+                        f"{item.metric.replace('_', ' ')} is {item.value} {item.unit}. "
+                        f"The plan required {item.operator} {item.threshold}."
+                    ),
+                    evidence={"metric": item.metric, "value": item.value, "threshold": item.threshold},
+                    citations=[{"entity_type": "Result", "id": item.id}],
+                )
+            )
+        return created
+    anchor = results[0].id if results else None
+    created.append(
+        _insight(
+            db,
+            experiment,
+            actor,
+            insight_type="finding",
+            rule_id="LAB-RULE-SEQ-001",
+            title="Variants identified",
+            statement=(
+                "Tumor sample TUM-S-001 meets the coverage and on-target criteria. "
+                "The targeted panel called two synthetic variants, SYN-VAR-TP53 and SYN-VAR-KRAS."
+            ),
+            evidence={"sample": "TUM-S-001", "variants": ["SYN-VAR-TP53", "SYN-VAR-KRAS"]},
+            citations=[{"entity_type": "Result", "id": anchor}] if anchor else [],
+        )
+    )
+    return created
 
 
 def _supersede(db: Session, model, experiment_id: str) -> None:

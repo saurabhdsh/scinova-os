@@ -30,6 +30,111 @@ body {
   background: rgba(100,116,139,0.4);
 }
 
+@keyframes studio-line-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes studio-dot {
+  0%, 70%, 100% { opacity: 0.18; }
+  35% { opacity: 1; }
+}
+
+@keyframes studio-rule {
+  0%, 100% { transform: scaleX(0.2); opacity: 0.35; }
+  50% { transform: scaleX(1); opacity: 0.8; }
+}
+
+.studio-look-line {
+  animation: studio-line-in 0.7s ease;
+}
+
+@keyframes studio-agent-in {
+  0% { opacity: 0; transform: translateY(22px); filter: blur(8px); }
+  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes studio-agent-out {
+  0% { opacity: 1; transform: translateY(0); filter: blur(0); }
+  100% { opacity: 0; transform: translateY(-26px); filter: blur(6px); }
+}
+
+@keyframes studio-agent-bar {
+  0% { transform: scaleY(0.15); opacity: 0; }
+  100% { transform: scaleY(1); opacity: 1; }
+}
+
+.studio-agent-line {
+  position: relative;
+  animation: studio-agent-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.studio-agent-line::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.15rem;
+  bottom: 0.15rem;
+  width: 3px;
+  border-radius: 99px;
+  transform-origin: top center;
+  background: linear-gradient(180deg, #e08a45, #9a3f14);
+  animation: studio-agent-bar 0.5s ease both;
+}
+
+.studio-agent-line.is-leaving {
+  animation: studio-agent-out 0.46s cubic-bezier(0.4, 0, 0.7, 1) both;
+}
+
+.studio-agent-kicker {
+  margin-left: 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #c46a2e;
+}
+
+.studio-agent-title {
+  margin-left: 16px;
+  margin-top: 4px;
+  font-family: inherit;
+  font-size: 1.85rem;
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.12;
+  color: #9a3f14;
+}
+
+.studio-agent-detail {
+  margin-left: 16px;
+  margin-top: 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #c45c26;
+}
+
+.studio-look-dot {
+  animation: studio-dot 1.8s ease-in-out infinite;
+}
+
+.studio-look-rule {
+  transform-origin: left center;
+  animation: studio-rule 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-look-line,
+  .studio-look-dot,
+  .studio-look-rule,
+  .studio-agent-line,
+  .studio-agent-line.is-leaving,
+  .studio-agent-line::before {
+    animation: none;
+  }
+}
+
 @keyframes workflow-shimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }

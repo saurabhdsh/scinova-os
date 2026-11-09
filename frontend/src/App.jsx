@@ -19,13 +19,10 @@ import Login from './pages/Login';
 import MolecularDiscoveryStudio from './pages/MolecularDiscoveryStudio';
 import LabShell from './pages/lab/LabShell';
 import CommandCenter from './pages/lab/CommandCenter';
-import PlanningWorkspace from './pages/lab/PlanningWorkspace';
-import ReadinessCockpit from './pages/lab/ReadinessCockpit';
 import IngestionMonitor from './pages/lab/IngestionMonitor';
 import ResultsDashboard from './pages/lab/ResultsDashboard';
 import LineageExplorer from './pages/lab/LineageExplorer';
 import DossierViewer from './pages/lab/DossierViewer';
-import ApprovalWorkspace from './pages/lab/ApprovalWorkspace';
 import NextExperiment from './pages/lab/NextExperiment';
 import AuditConsole from './pages/lab/AuditConsole';
 
@@ -71,13 +68,13 @@ export default function App() {
           <Route path="settings/tool-fabric" element={<Settings />} />
           <Route path="lab" element={<LabShell />}>
             <Route index element={<CommandCenter />} />
-            <Route path="planning" element={<PlanningWorkspace />} />
-            <Route path="readiness" element={<ReadinessCockpit />} />
+            <Route path="planning" element={<CommandCenter />} />
+            <Route path="readiness" element={<CommandCenter />} />
             <Route path="ingestion" element={<IngestionMonitor />} />
             <Route path="results" element={<ResultsDashboard />} />
             <Route path="lineage" element={<LineageExplorer />} />
             <Route path="dossier" element={<DossierViewer />} />
-            <Route path="approval" element={<ApprovalWorkspace />} />
+            <Route path="approval" element={<CommandCenter />} />
             <Route path="next" element={<NextExperiment />} />
             <Route path="audit" element={<AuditConsole />} />
           </Route>

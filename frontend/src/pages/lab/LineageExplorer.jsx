@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import GlassPanel from '../../components/ui/GlassPanel';
 import { getLabIngestion, getLabLineage, labError, queryLabGraph } from '../../api/lab';
-import { LabNotice, useLab } from './LabShell';
+import { useLab } from './LabShell';
 
 export default function LineageExplorer() {
   const { experimentId } = useLab();
@@ -23,7 +23,6 @@ export default function LineageExplorer() {
 
   return (
     <div className="space-y-5">
-      <LabNotice />
       <GlassPanel>
         <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim">Knowledge graph lineage</p>
         <h2 className="font-display text-xl mt-1">Measurement to protocol version</h2>

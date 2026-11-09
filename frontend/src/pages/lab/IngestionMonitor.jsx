@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import GlassPanel from '../../components/ui/GlassPanel';
 import { fetchVicellFixtureFile, getLabIngestion, ingestLabFile, labError } from '../../api/lab';
-import { LabNotice, StatusPill, useLab } from './LabShell';
+import { StatusPill, useLab } from './LabShell';
 
 export default function IngestionMonitor() {
   const { experimentId } = useLab();
@@ -36,11 +36,10 @@ export default function IngestionMonitor() {
 
   return (
     <div className="space-y-5">
-      <LabNotice />
       <GlassPanel>
         <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim">Moment 3 — instrument data capture</p>
         <h2 className="font-display text-xl mt-1">Vi-CELL XR landing zone</h2>
-        <p className="mt-2 text-sm text-cx-fgMuted">The fixture uses publicly documented Vi-CELL XR export columns. Its numbers are synthetic, including one unmatched sample identifier.</p>
+        <p className="mt-2 text-sm text-cx-fgMuted">Upload a Vi-CELL export or use the prepared file for this run.</p>
         <div className="mt-4 flex flex-wrap gap-2">
           <button type="button" onClick={useFixture} disabled={!experimentId} className="rounded-xl bg-cx-accent text-white px-3 py-2 text-sm disabled:opacity-50">Ingest synthetic Vi-CELL fixture</button>
           <label className="rounded-xl border border-cx-border px-3 py-2 text-sm cursor-pointer">

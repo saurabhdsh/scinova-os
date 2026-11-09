@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import GlassPanel from '../../components/ui/GlassPanel';
 import { approveLabPlan, createLabPlan, getLabProtocols, labError, searchLabDocuments } from '../../api/lab';
-import { LabNotice, StatusPill, useLab } from './LabShell';
+import { StatusPill, useLab } from './LabShell';
 
 export default function PlanningWorkspace() {
   const { setExperimentId, program } = useLab();
@@ -57,7 +57,6 @@ export default function PlanningWorkspace() {
 
   return (
     <div className="space-y-5">
-      <LabNotice />
       <GlassPanel>
         <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim">Moment 1 — experiment planning</p>
         <h2 className="font-display text-xl mt-1">Choose an approved protocol</h2>

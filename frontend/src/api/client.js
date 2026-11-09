@@ -161,16 +161,22 @@ export const runDocking = (data) => api.post('/chemoinformatics/dock', data);
 
 export const createChemSession = () => api.post('/chem/session');
 export const getChemSession = (sessionId) => api.get(`/chem/session/${sessionId}`);
+export const chemRoute = (data) => api.post('/chem/route', data);
 export const chemQuery = (data) => api.post('/chem/query', data);
 export const chemDepict = (data) => api.post('/chem/depict', data);
 export const getChemStructure = (pdbId) => api.get(`/chem/structures/${pdbId}`);
+export const setChemSelection = (sessionId, data) => api.post(`/chem/session/${sessionId}/selection`, data);
 
 export async function exportChemSession(sessionId, format = 'markdown') {
   const res = await api.get(`/chem/session/${sessionId}/export`, {
     params: { format },
     responseType: format === 'json' ? 'json' : 'blob',
   });
-  if (format === 'json') return res.data;
+  if (format === 'json') {
+    const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+    saveBlob(blob, `mds-session-${sessionId.slice(0, 8)}.json`);
+    return res.data;
+  }
   const disposition = res.headers['content-disposition'] || '';
   const match = disposition.match(/filename="([^"]+)"/);
   saveBlob(res.data, match?.[1] || `mds-session-${sessionId.slice(0, 8)}.md`);

@@ -242,10 +242,12 @@ def design_candidates(
     except Exception as exc:
         logger.warning("Drug similarity benchmarking unavailable: %s", exc)
 
-    if receptor_based or pdb_id:
-        candidates = _score_receptor_candidates(candidates, pdb_id=pdb_id)
-    elif drug_stats.get("available"):
+    if drug_stats.get("available"):
         candidates = _rank_by_drug_likeness(candidates)
+    else:
+        for rank, candidate in enumerate(candidates, start=1):
+            candidate["rank"] = rank
+            candidate["docking_score"] = None
     candidates = candidates[:max_candidates]
     neural_origins = {"neural_smiles_rnn", "neural_analog"}
     neural_count = sum(1 for c in candidates if c.get("origin") in neural_origins)
@@ -372,9 +374,9 @@ def _generation_method(
                 "step": 2,
                 "name": "Sample candidate structures",
                 "detail": (
-                    f"Draw SMILES from the learned distribution"
-                    + (f" with mild {pid}/{pocket} chemotype priming" if receptor_based else "")
-                    + f"; kept {neural_count} RDKit-valid unique molecules."
+                    f"Draw SMILES from the learned distribution; kept {neural_count} "
+                    "structures that RDKit could sanitize and that contain neither a radical "
+                    "nor a ring of five or more nitrogens. The sampler is not conditioned on a pocket."
                 ),
             },
             {
@@ -397,7 +399,10 @@ def _generation_method(
             {
                 "step": 4,
                 "name": "Validate & featurize",
-                "detail": "RDKit sanitization, canonical SMILES, and descriptors (MW, cLogP, QED, Lipinski).",
+                "detail": (
+                    "RDKit sanitization, rejection of radicals and rings with five or more nitrogens, "
+                    "canonical SMILES, and descriptors (MW, cLogP, QED, Lipinski)."
+                ),
             },
             {
                 "step": 5,
@@ -420,8 +425,8 @@ def _generation_method(
                 "step": 6,
                 "name": "Rank for the design goal",
                 "detail": (
-                    f"Ranked {total} candidates"
-                    + (" with a docking-score surrogate for the named pocket." if receptor_based else ".")
+                    f"Ordered {total} candidates by similarity to known drugs. "
+                    "No docking calculation was run, so no docking score is reported."
                 ),
             },
         ],
@@ -451,26 +456,3 @@ def _rank_by_drug_likeness(candidates: list[dict[str, Any]]) -> list[dict[str, A
     return ranked
 
 
-def _score_receptor_candidates(candidates: list[dict[str, Any]], *, pdb_id: str | None) -> list[dict[str, Any]]:
-    """Assign ranked docking-style scores (more negative = better)."""
-    scored: list[dict[str, Any]] = []
-    for i, c in enumerate(candidates):
-        qed = float(c.get("qed") or 0.5)
-        mw = float(c.get("mw") or 350)
-        clogp = float(c.get("clogp") or 2.5)
-        # Surrogate: favor drug-like QED, mid MW, moderate lipophilicity
-        base = -8.5 - (qed * 4.0)
-        base += abs(mw - 380) / 80.0
-        base += abs(clogp - 3.0) * 0.35
-        # Slight deterministic jitter from SMILES length so ranks are stable but distinct
-        base -= (len(c.get("smiles") or "") % 7) * 0.12
-        # Known strong JAK2-like templates get a bump when targeting JAK structures
-        if pdb_id and c.get("candidate_id", "").startswith("DSN-J"):
-            base -= 1.1
-        c2 = dict(c)
-        c2["docking_score"] = round(base, 2)
-        scored.append(c2)
-    scored.sort(key=lambda x: x["docking_score"])
-    for rank, c in enumerate(scored, start=1):
-        c["rank"] = rank
-    return scored

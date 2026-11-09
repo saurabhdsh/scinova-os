@@ -9,8 +9,9 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies.auth import CurrentUser
 from app.lab.agents import AGENTS, explain, get_outputs, get_status, health, invoke
+from app.lab.assistant import answer_question, draft_from_intent
 from app.lab.audit import history
-from app.lab.catalog import current_csv
+from app.lab.catalog import current_csv, planned_csv, sequencing_csv
 from app.lab.dossier import decide_dossier, generate_dossier
 from app.lab.errors import LabError
 from app.lab.graph_bridge import lineage, query_relationships
@@ -34,6 +35,7 @@ from app.lab.operations import (
     approve_plan,
     create_follow_up,
     create_plan,
+    create_protocol,
     eln_status,
     evaluate_readiness,
     resolve_issue,
@@ -104,6 +106,23 @@ def list_protocols(user: CurrentUser, db: Session = Depends(get_db)):
     ]
 
 
+@router.post("/protocols")
+def post_protocol(payload: dict, user: CurrentUser, db: Session = Depends(get_db)):
+    _role(user, _WRITE_ROLES)
+
+    def _run():
+        return create_protocol(
+            db,
+            actor=user.username,
+            title=payload.get("title") or "",
+            parameters=payload.get("parameters"),
+            success_criteria=payload.get("success_criteria"),
+            exact=bool(payload.get("exact")),
+        )
+
+    return _commit(db, _run)
+
+
 @router.get("/experiments")
 def list_experiments(user: CurrentUser, db: Session = Depends(get_db)):
     _role(user, _READ_ROLES)
@@ -131,6 +150,7 @@ def post_plan(payload: dict, user: CurrentUser, db: Session = Depends(get_db)):
             actor=user.username,
             title=payload.get("title"),
             parameters=payload.get("parameters"),
+            success_criteria=payload.get("success_criteria"),
         )
         return dump(plan)
 
@@ -142,7 +162,7 @@ def post_approve_plan(plan_id: str, payload: dict, user: CurrentUser, db: Sessio
     _role(user, _APPROVE_ROLES)
 
     def _run():
-        experiment = approve_plan(db, plan_id, user.username, payload.get("comment"))
+        experiment = approve_plan(db, plan_id, user.username, payload.get("comment"), payload.get("title"))
         return dump(experiment)
 
     return _commit(db, _run)
@@ -302,6 +322,28 @@ def fixture_csv(user: CurrentUser):
     )
 
 
+@router.get("/fixtures/vicell-planned.csv")
+def fixture_planned_csv(experiment_id: str, user: CurrentUser, db: Session = Depends(get_db)):
+    _role(user, _READ_ROLES)
+    experiment = db.get(LabExperiment, experiment_id)
+    if experiment is None:
+        raise LabError("Experiment not found.", status_code=404, code="not_found")
+    plan = db.get(LabExperimentPlan, experiment.plan_id)
+    parameters = (plan.parameters_json or {}) if plan else {}
+    version = db.get(LabProtocolVersion, plan.protocol_version_id) if plan else None
+    protocol = db.get(LabProtocol, version.protocol_id) if version else None
+    serial = str(parameters.get("instrument_serial") or "VC-XR-1042")
+    code = getattr(protocol, "code", None)
+    sequencing = code == "SYN-SEQ-001"
+    content = sequencing_csv(serial) if sequencing else planned_csv(parameters.get("seeding_density_cells_per_ml"), code, serial)
+    filename = "sequencing-summary-synthetic.csv" if sequencing else "vicell-planned-synthetic.csv"
+    return Response(
+        content=content,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
 @router.get("/entities/{entity_type}")
 def list_entities(entity_type: str, user: CurrentUser, db: Session = Depends(get_db)):
     _role(user, _READ_ROLES)
@@ -447,6 +489,29 @@ def get_audit(entity_ref: str, user: CurrentUser, db: Session = Depends(get_db))
         }
         for row in rows
     ]
+
+
+@router.post("/assistant/ask")
+def post_assistant_ask(payload: dict, user: CurrentUser, db: Session = Depends(get_db)):
+    _role(user, _READ_ROLES)
+    question = str(payload.get("question") or "").strip()
+    if not question:
+        raise LabError("Ask a question.", status_code=400, code="question_required")
+    if len(question) > 1000:
+        raise LabError("Ask a shorter question.", status_code=400, code="question_too_long")
+    history = payload.get("history") if isinstance(payload.get("history"), list) else []
+    experiment_id = payload.get("experiment_id") or None
+    draft = payload.get("draft") if isinstance(payload.get("draft"), dict) else None
+    return answer_question(db, question[:1000], history[:8], experiment_id, draft)
+
+
+@router.post("/assistant/draft")
+def post_assistant_draft(payload: dict, user: CurrentUser, db: Session = Depends(get_db)):
+    _role(user, _READ_ROLES)
+    intent = str(payload.get("intent") or "").strip()
+    if len(intent) < 8:
+        raise LabError("Describe what you want this experiment to do.", status_code=400, code="intent_required")
+    return draft_from_intent(db, intent[:1000])
 
 
 @router.get("/agents")

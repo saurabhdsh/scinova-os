@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Beaker, Wrench } from 'lucide-react';
-import GlassPanel from '../ui/GlassPanel';
+import { ChevronDown, ChevronRight, Wrench } from 'lucide-react';
 import MolStarViewer from './MolStarViewer';
 import SmilesDepict from './SmilesDepict';
 
@@ -40,6 +39,7 @@ function TracePanel({ trace }) {
 function StructuresTable({ structures, activePdbId, onSelect }) {
   if (!structures?.length) return null;
   const showRes = structures.some((s) => s.resolution != null);
+  const showLigand = structures.some((s) => (s.other_ligands || []).length);
   return (
     <div className="mt-3 overflow-x-auto">
       <table className="w-full text-xs">
@@ -49,6 +49,7 @@ function StructuresTable({ structures, activePdbId, onSelect }) {
             <th className="py-1.5 pr-2">PDB ID</th>
             {showRes && <th className="py-1.5 pr-2">Resolution (Å)</th>}
             <th className="py-1.5 pr-2">Method</th>
+            {showLigand && <th className="py-1.5 pr-2">Ligand</th>}
             <th className="py-1.5">Title</th>
           </tr>
         </thead>
@@ -73,7 +74,10 @@ function StructuresTable({ structures, activePdbId, onSelect }) {
                 </td>
               )}
               <td className="py-1.5 pr-2 text-cx-fgMuted">{s.method || '—'}</td>
-              <td className="py-1.5 text-cx-fgMuted max-w-[280px] truncate" title={s.title}>
+              {showLigand && (
+                <td className="py-1.5 pr-2 font-mono">{(s.other_ligands || []).join(', ') || '—'}</td>
+              )}
+              <td className="py-1.5 text-cx-fgMuted" title={s.title}>
                 {s.title || '—'}
               </td>
             </tr>
@@ -113,6 +117,7 @@ function LigandsTable({ ligands }) {
 
 function ActivesTable({ actives }) {
   if (!actives?.length) return null;
+  const showRelation = actives.some((a) => a.relation);
   return (
     <div className="mt-3 overflow-x-auto">
       <table className="w-full text-xs">
@@ -122,6 +127,7 @@ function ActivesTable({ actives }) {
             <th className="py-1.5 pr-2">ChEMBL</th>
             <th className="py-1.5 pr-2">Name</th>
             <th className="py-1.5 pr-2">pChEMBL</th>
+            {showRelation && <th className="py-1.5 pr-2">Relation</th>}
             <th className="py-1.5 pr-2">Assay</th>
             <th className="py-1.5">SMILES</th>
           </tr>
@@ -133,6 +139,7 @@ function ActivesTable({ actives }) {
               <td className="py-1.5 pr-2 font-mono text-cx-accent">{a.chembl_id}</td>
               <td className="py-1.5 pr-2">{a.pref_name}</td>
               <td className="py-1.5 pr-2">{a.pchembl ?? '—'}</td>
+              {showRelation && <td className="py-1.5 pr-2">{a.relation || '—'}</td>}
               <td className="py-1.5 pr-2 max-w-[140px] truncate" title={a.assay}>{a.assay}</td>
               <td className="py-1.5 font-mono max-w-[180px] truncate" title={a.smiles}>{a.smiles}</td>
             </tr>
@@ -150,7 +157,7 @@ const VERDICT_TONE = {
   'duplicate of known drug': 'text-rose-400',
 };
 
-function CandidatesTable({ candidates }) {
+function CandidatesTable({ candidates, selectedId, onSelect }) {
   if (!candidates?.length) return null;
   const showDock = candidates.some((c) => c.docking_score != null);
   const showRank = showDock || candidates.some((c) => c.rank != null);
@@ -176,7 +183,13 @@ function CandidatesTable({ candidates }) {
         </thead>
         <tbody>
           {candidates.map((c) => (
-            <tr key={c.candidate_id} className="border-b border-cx-border/60">
+            <tr
+              key={c.candidate_id}
+              className={`border-b border-cx-border/60 ${onSelect ? 'cursor-pointer hover:bg-black/[0.03]' : ''} ${
+                selectedId === c.candidate_id ? 'bg-black/[0.04]' : ''
+              }`}
+              onClick={() => onSelect?.(c)}
+            >
               {showRank && <td className="py-1.5 pr-2">{c.rank ?? '—'}</td>}
               <td className="py-1.5 pr-2 font-medium">{c.candidate_id}</td>
               {showDock && (
@@ -204,6 +217,48 @@ function CandidatesTable({ candidates }) {
                 </td>
               )}
               <td className="py-1.5 font-mono max-w-[200px] truncate" title={c.smiles}>{c.smiles}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PropertyTable({ rows }) {
+  if (!rows?.length) return null;
+  return (
+    <div className="mt-3 overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-left text-cx-fgDim border-b border-cx-border">
+            <th className="py-1.5 pr-2">Molecule</th>
+            <th className="py-1.5 pr-2">SMILES</th>
+            <th className="py-1.5 pr-2">Predicted bioactivity</th>
+            <th className="py-1.5 pr-2">MW</th>
+            <th className="py-1.5 pr-2">logP</th>
+            <th className="py-1.5 pr-2">TPSA</th>
+            <th className="py-1.5 pr-2">HBD</th>
+            <th className="py-1.5 pr-2">HBA</th>
+            <th className="py-1.5 pr-2">Rotatable</th>
+            <th className="py-1.5 pr-2">QED</th>
+            <th className="py-1.5">Lipinski</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.candidate_id} className="border-b border-cx-border/60">
+              <td className="py-1.5 pr-2 font-medium">{row.candidate_id}</td>
+              <td className="py-1.5 pr-2 font-mono max-w-[180px] truncate" title={row.smiles}>{row.smiles}</td>
+              <td className="py-1.5 pr-2">{row.predicted_bioactivity}</td>
+              <td className="py-1.5 pr-2">{row.molecular_weight ?? '—'}</td>
+              <td className="py-1.5 pr-2">{row.logp ?? '—'}</td>
+              <td className="py-1.5 pr-2">{row.tpsa ?? '—'}</td>
+              <td className="py-1.5 pr-2">{row.h_bond_donors ?? '—'}</td>
+              <td className="py-1.5 pr-2">{row.h_bond_acceptors ?? '—'}</td>
+              <td className="py-1.5 pr-2">{row.rotatable_bonds ?? '—'}</td>
+              <td className="py-1.5 pr-2">{row.qed ?? '—'}</td>
+              <td className="py-1.5">{row.lipinski_violations ?? '—'}</td>
             </tr>
           ))}
         </tbody>
@@ -247,7 +302,7 @@ function NoveltyTable({ novelty }) {
             <th className="py-1.5 pr-2">Candidate</th>
             <th className="py-1.5 pr-2">Tanimoto</th>
             <th className="py-1.5 pr-2">Label</th>
-            <th className="py-1.5">Closest analog</th>
+            <th className="py-1.5">Nearest reference</th>
           </tr>
         </thead>
         <tbody>
@@ -256,8 +311,9 @@ function NoveltyTable({ novelty }) {
               <td className="py-1.5 pr-2">{n.candidate_id}</td>
               <td className="py-1.5 pr-2">{n.max_tanimoto}</td>
               <td className="py-1.5 pr-2">{n.novelty_label}</td>
-              <td className="py-1.5 font-mono max-w-[200px] truncate" title={n.closest_analog_smiles}>
-                {n.closest_analog_smiles || '—'}
+              <td className="py-1.5" title={n.closest_analog_smiles || ''}>
+                {n.closest_record_id || n.closest_name || 'Stored ligand'}
+                {n.closest_class ? ` · ${n.closest_class}` : ''}
               </td>
             </tr>
           ))}
@@ -267,33 +323,93 @@ function NoveltyTable({ novelty }) {
   );
 }
 
-export default function ChemResultCard({ card }) {
+function wantsStructure(card, capability) {
+  if (['C6', 'C6D', 'C6P'].includes(capability)) return true;
+  const question = card?.query || '';
+  return /\b(show|view|open|visuali[sz]e|display|render|3d)\b/i.test(question)
+    && /\b(structure|pdb|receptor|pocket|protein)\b/i.test(question);
+}
+
+export default function ChemResultCard({ card, selectedId, onSelectMolecule }) {
   const payload = card?.payload || {};
   const viz = card?.visualization || payload.visualization;
+  const capability = card?.capability || payload.capability;
   const defaultPdbId = viz?.pdb_id || payload.default_pdb_id || payload.pdb_id || payload.dossier?.pdb_id;
   const [activePdbId, setActivePdbId] = useState(null);
-  const pdbId = activePdbId || defaultPdbId;
-  const narrative = card?.narrative || payload.narrative;
-  const smiles =
-    viz?.smiles
-    || payload.actives?.[0]?.smiles
-    || payload.candidates?.[0]?.smiles
-    || payload.route?.smiles;
+  const show3d = Boolean(activePdbId) || wantsStructure(card, capability);
+  const pdbId = show3d ? (activePdbId || defaultPdbId) : null;
+  const reply = card?.spoken || card?.narrative || payload.narrative;
+  const narrative = reply;
+  const show2d = ['C2', 'C3', 'C6', 'C7', 'OPT'].includes(capability);
+  const smiles = show2d
+    ? (
+      viz?.smiles
+      || payload.actives?.[0]?.smiles
+      || payload.candidates?.[0]?.smiles
+      || payload.route?.smiles
+    )
+    : null;
   const dossier = payload.dossier;
   const ligands = payload.ligands || dossier?.ligands;
   const pockets = payload.pockets;
   const method = payload.method;
 
   return (
-    <GlassPanel className="space-y-3">
+    <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim flex items-center gap-1.5">
-            <Beaker size={11} /> {card.capability} · {payload.capability_name || card.intent}
-          </p>
-          <h3 className="font-display font-semibold text-sm mt-1 break-words">{card.summary}</h3>
-          {narrative && narrative !== card.summary && (
-            <p className="text-xs text-cx-fgMuted mt-1 break-words">{narrative}</p>
+          {narrative ? (
+            <p className="whitespace-pre-line text-[15px] leading-7 text-[#1d1d1f]">{narrative}</p>
+          ) : (
+            <h3 className="font-display font-semibold text-sm break-words">{card.summary}</h3>
+          )}
+          {(card.triggered_agents || []).length > 0 && (
+            <div className="mt-3 space-y-1">
+              {card.triggered_agents.map((agent) => (
+                <p key={agent.name} className="text-[12px] font-semibold leading-4 tracking-tight text-[#9a3f14]">
+                  <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[#c45c26] align-middle" />
+                  {agent.stage}
+                  <span className="mx-1.5 font-medium text-[#d4894a]">·</span>
+                  <span className="text-[#c45c26]">{agent.name}</span>
+                </p>
+              ))}
+            </div>
+          )}
+          {(card.provenance?.evidence || payload.provenance?.evidence) && (
+            <p className="mt-2 text-[11px] uppercase tracking-[0.14em] text-[#8e8e93]">
+              {(card.provenance || payload.provenance).evidence}
+              {' · '}
+              {(card.provenance || payload.provenance).status || 'recorded'}
+              {(card.provenance || payload.provenance).tool
+                ? ` · ${(card.provenance || payload.provenance).tool}`
+                : ''}
+            </p>
+          )}
+          {payload.review?.rows?.length > 0 && (
+            <div className="mt-4">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-[#8e8e93]">{payload.review.title}</p>
+              <table className="mt-2 w-full text-sm">
+                <thead>
+                  <tr className="border-b border-black/[0.08] text-left text-[11px] uppercase tracking-[0.14em] text-[#8e8e93]">
+                    <th className="py-2 pr-3 font-medium">Group</th>
+                    <th className="py-2 pr-3 font-medium">Example</th>
+                    <th className="py-2 font-medium">Stored record</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payload.review.rows.map((row) => (
+                    <tr key={`${row.group}-${row.example}`} className="border-b border-black/[0.05]">
+                      <td className="py-2 pr-3 text-[#6e6e73]">{row.group}</td>
+                      <td className="py-2 pr-3 font-medium text-[#1d1d1f]">{row.example}</td>
+                      <td className="py-2 text-[#3c3c43]">{row.record}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {payload.review.note && (
+                <p className="mt-2 text-xs text-[#8e8e93]">{payload.review.note}</p>
+              )}
+            </div>
           )}
           <p className="text-2xs text-cx-fgDim mt-2 italic break-words">“{card.query}”</p>
         </div>
@@ -431,8 +547,13 @@ export default function ChemResultCard({ card }) {
         </p>
       )}
 
+      <PropertyTable rows={payload.property_table} />
       <ActivesTable actives={payload.actives} />
-      <CandidatesTable candidates={payload.candidates} />
+      <CandidatesTable
+        candidates={payload.candidates}
+        selectedId={selectedId}
+        onSelect={onSelectMolecule}
+      />
       <DrugBenchmark benchmark={payload.drug_benchmark} />
       <NoveltyTable novelty={payload.novelty} />
 
@@ -503,6 +624,6 @@ export default function ChemResultCard({ card }) {
       </div>
 
       <TracePanel trace={card.trace} />
-    </GlassPanel>
+    </div>
   );
 }

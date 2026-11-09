@@ -53,6 +53,45 @@ SUCCESS_CRITERIA = [
     },
 ]
 
+SEQUENCING_CODE = "SYN-SEQ-001"
+SEQUENCING_PARAMETERS = {
+    "sample_type": "Tumor DNA",
+    "assay": "Targeted gene panel",
+    "gene_panel": "409-gene solid tumor",
+    "target_coverage_x": 500,
+    "tumor_fraction_percent": 40,
+    "operator": "Priya Nair",
+    "instrument_serial": "NS-SEQ-4401",
+    "library_lot": "LIB-LOT-220",
+}
+SEQUENCING_CRITERIA = [
+    {
+        "id": "SC-COV",
+        "metric": "mean_coverage_x",
+        "operator": ">=",
+        "threshold": 100,
+        "unit": "x",
+    },
+    {
+        "id": "SC-ONTARGET",
+        "metric": "on_target_percent",
+        "operator": ">=",
+        "threshold": 80,
+        "unit": "percent",
+    },
+]
+SEQUENCING_SAMPLES = [
+    {
+        "sample_code": "TUM-S-001",
+        "cell_line": "Tumor DNA",
+        "cell_line_ontology": None,
+        "passage": None,
+        "qc_status": "pass",
+        "lineage": {"specimen": "tumor", "data_origin": "synthetic"},
+    }
+]
+SEQUENCING_READOUTS = ["mean_coverage_x", "on_target_percent"]
+
 CURRENT_ROWS = [
     {"sample_id": "SYN-S-001", "viability": 92.1, "total_count": 1240, "viable_count": 1142, "total_ml": 1.24e6, "viable_ml": 1.142e6, "diameter": 14.8, "circularity": 0.87, "min_d": 8.1, "max_d": 24.0, "images": 50},
     {"sample_id": "SYN-S-002", "viability": 90.4, "total_count": 1188, "viable_count": 1074, "total_ml": 1.188e6, "viable_ml": 1.074e6, "diameter": 15.1, "circularity": 0.85, "min_d": 8.0, "max_d": 25.2, "images": 50},
@@ -162,6 +201,96 @@ def current_csv(serial: str = "VC-XR-1042") -> bytes:
     return render_vicell_csv(CURRENT_ROWS, serial=serial)
 
 
+_BASELINE_SEEDING = 200_000
+_RECOVERY_VIABILITY = {
+    "SYN-S-001": 88.4,
+    "SYN-S-002": 90.1,
+    "SYN-S-003": 87.6,
+    "SYN-S-004": 89.2,
+    "SYN-S-005": 91.0,
+}
+
+
+def _with_viability(row: dict, viability: float) -> dict:
+    updated = dict(row)
+    updated["viability"] = round(float(viability), 1)
+    updated["viable_count"] = int(round(updated["total_count"] * updated["viability"] / 100))
+    updated["viable_ml"] = round(updated["total_ml"] * updated["viability"] / 100, 1)
+    return updated
+
+
+def planned_rows(seeding_density, protocol_code: str | None = None) -> list[dict]:
+    """A synthetic plate for one plan. The canonical failing plate stays at 200,000 cells/mL."""
+    if protocol_code == "SYN-CVP-003":
+        return [
+            _with_viability(row, _RECOVERY_VIABILITY[row["sample_id"]])
+            if row["sample_id"] in _RECOVERY_VIABILITY else dict(row)
+            for row in CURRENT_ROWS
+        ]
+    try:
+        seeding = float(seeding_density)
+    except (TypeError, ValueError):
+        seeding = float(_BASELINE_SEEDING)
+    if seeding <= 0:
+        seeding = float(_BASELINE_SEEDING)
+    ratio = seeding / _BASELINE_SEEDING
+    if abs(ratio - 1) < 1e-9:
+        return [dict(row) for row in CURRENT_ROWS]
+    healthy = [
+        row["viability"]
+        for row in CURRENT_ROWS
+        if row["sample_id"] in {"SYN-S-001", "SYN-S-002", "SYN-S-003", "SYN-S-004"}
+    ]
+    healthy_mean = sum(healthy) / len(healthy)
+    rows = []
+    for row in CURRENT_ROWS:
+        if row["sample_id"] != "SYN-S-005":
+            rows.append(dict(row))
+            continue
+        if ratio < 1:
+            viability = max(40.0, 58.0 - (1 - ratio) * 20)
+        else:
+            progress = min(1.0, (ratio - 1) / 0.2)
+            viability = 58.0 + (healthy_mean - 58.0) * progress
+        rows.append(_with_viability(row, viability))
+    if ratio > 1.2:
+        lift = min(2.0, (ratio - 1.2) * 4)
+        rows = [
+            _with_viability(row, min(99.0, row["viability"] + lift))
+            if row["sample_id"] != "SYN-UNMATCHED-999" else dict(row)
+            for row in rows
+        ]
+    return rows
+
+
+def planned_csv(seeding_density, protocol_code: str | None = None, serial: str = "VC-XR-1042") -> bytes:
+    note = "Synthetic plate for this plan. Sample SYN-S-005 follows the planned seeding density."
+    if protocol_code == "SYN-CVP-003":
+        note = "Synthetic post-thaw recovery plate."
+    return render_vicell_csv(
+        planned_rows(seeding_density, protocol_code),
+        serial=serial or "VC-XR-1042",
+        extra_note=note,
+    )
+
+
+def sequencing_csv(serial: str = "NS-SEQ-4401") -> bytes:
+    """Synthetic sequencing summary for tumor sample TUM-S-001. Not a clinical report."""
+    meta = [
+        "# data_class: SYNTHETIC",
+        "# assay: targeted-panel",
+        f"# instrument_serial: {serial or 'NS-SEQ-4401'}",
+        "# sample: TUM-S-001",
+        "# variants: SYN-VAR-TP53, SYN-VAR-KRAS",
+        "# note: Synthetic sequencing summary for the lab demo. Not a clinical report.",
+    ]
+    table = "\n".join([
+        "Sample ID,Mean coverage (x),On-target (%)",
+        "TUM-S-001,520,92.4",
+    ])
+    return ("\n".join(meta) + "\n" + table + "\n").encode("utf-8")
+
+
 def partial_csv() -> bytes:
     """Drops SYN-S-005 so completeness is below 100 percent. Still synthetic."""
     rows = [row for row in CURRENT_ROWS if row["sample_id"] != "SYN-S-005"]
@@ -248,6 +377,22 @@ def protocol_definitions(today: date | None = None) -> list[dict]:
             "samples": SAMPLE_PANEL[:2],
             "sections": [
                 ("1. Purpose", f"{sop_common} Measure viability four hours after thaw.", "SYN-CVP-003 §1"),
+            ],
+        },
+        {
+            "code": SEQUENCING_CODE,
+            "title": "Tumor DNA sequencing for mutation identification",
+            "version": "1.0",
+            "version_number": 1,
+            "summary": "Synthetic targeted sequencing of a tumor DNA sample to call mutations.",
+            "parameters": SEQUENCING_PARAMETERS,
+            "criteria": SEQUENCING_CRITERIA,
+            "samples": SEQUENCING_SAMPLES,
+            "readouts": SEQUENCING_READOUTS,
+            "sections": [
+                ("1. Purpose", f"{sop_common} Sequence tumor DNA and identify mutations on a targeted panel.", "SYN-SEQ-001 §1"),
+                ("4. Readout", "Record mean coverage and the on-target fraction from the sequencing summary.", "SYN-SEQ-001 §4"),
+                ("6. Success", "Mean coverage must be at least 100x and on-target bases must be at least 80 percent.", "SYN-SEQ-001 §6"),
             ],
         },
     ]

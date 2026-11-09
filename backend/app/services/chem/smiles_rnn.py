@@ -268,6 +268,26 @@ def sample_smiles(
     return "".join(out_chars)
 
 
+def rejection_reason(smi: str) -> str | None:
+    """Why a SMILES is not a usable candidate. None means the chemistry is acceptable."""
+    try:
+        from rdkit import Chem
+
+        mol = Chem.MolFromSmiles(smi or "")
+        if mol is None:
+            return "could not be parsed"
+        Chem.SanitizeMol(mol)
+    except Exception:
+        return "failed sanitization"
+    if any(atom.GetNumRadicalElectrons() for atom in mol.GetAtoms()):
+        return "contains a radical"
+    for ring in mol.GetRingInfo().AtomRings():
+        nitrogens = sum(1 for idx in ring if mol.GetAtomWithIdx(idx).GetAtomicNum() == 7)
+        if nitrogens >= 5:
+            return "contains a ring with five or more nitrogens"
+    return None
+
+
 def _validate_smiles(smi: str, *, min_heavy_atoms: int = 10) -> str | None:
     smi = (smi or "").strip()
     if len(smi) < 5:
@@ -279,13 +299,14 @@ def _validate_smiles(smi: str, *, min_heavy_atoms: int = 10) -> str | None:
         return None
     if any(ch in smi for ch in {"^", "$"}):
         return None
+    if rejection_reason(smi):
+        return None
     try:
         from rdkit import Chem
 
         mol = Chem.MolFromSmiles(smi)
         if mol is None:
             return None
-        Chem.SanitizeMol(mol)
         # Drug-likeness gate: reject trivial fragments (benzene, anisole, …)
         if mol.GetNumHeavyAtoms() < min_heavy_atoms:
             return None

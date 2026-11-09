@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import GlassPanel from '../../components/ui/GlassPanel';
 import { getLabAgentHealth, getLabAudit, invokeLabAgent, labError } from '../../api/lab';
-import { LabNotice, StatusPill, useLab } from './LabShell';
+import { StatusPill, useLab } from './LabShell';
 
 export default function AuditConsole() {
   const { experimentId } = useLab();
@@ -28,7 +28,6 @@ export default function AuditConsole() {
 
   return (
     <div className="space-y-5">
-      <LabNotice />
       <GlassPanel>
         <p className="text-2xs uppercase tracking-[0.2em] text-cx-fgDim">Agent execution and audit</p>
         <button type="button" onClick={runHealthJob} disabled={!experimentId} className="mt-3 rounded-xl border border-cx-border px-3 py-2 text-sm disabled:opacity-50">Invoke LAB-A1 what-if</button>

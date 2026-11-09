@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.lab.catalog import (
     EXPECTED_READOUTS,
+    SEQUENCING_CODE,
     historical_experiments,
     lot_dates,
     protocol_definitions,
@@ -30,11 +31,14 @@ from app.models.db_models import Document, GraphNode, Project, ProjectMember, Us
 
 def seed_lab(db: Session) -> None:
     if db.query(LabProtocol).filter(LabProtocol.code == "SYN-CVP-001").first():
+        if _ensure_sequencing_protocol(db):
+            db.commit()
         return
     owner = db.query(User).filter(User.username == "scientist").first() or db.query(User).first()
     if owner is None:
         return
     _seed_lab_for_owner(db, owner)
+    _ensure_sequencing_protocol(db)
     db.commit()
 
 
@@ -135,7 +139,7 @@ def _seed_lab_for_owner(db: Session, owner: User) -> None:
             parameters_json=spec["parameters"],
             success_criteria_json=spec["criteria"],
             sample_panel_json=spec["samples"],
-            expected_readouts_json=list(EXPECTED_READOUTS),
+            expected_readouts_json=list(spec.get("readouts") or EXPECTED_READOUTS),
             document_id=document.id,
             data_origin="synthetic",
             created_by="seed-script",
@@ -224,3 +228,74 @@ def _seed_lab_for_owner(db: Session, owner: User) -> None:
         experiment.status = "completed"
         experiment.data_origin = "synthetic_historical"
     db.flush()
+
+
+def _ensure_sequencing_protocol(db: Session) -> bool:
+    spec = next(row for row in protocol_definitions() if row["code"] == SEQUENCING_CODE)
+    changed = False
+    dates = lot_dates()
+    if db.query(LabInstrument).filter(LabInstrument.serial_number == spec["parameters"]["instrument_serial"]).first() is None:
+        db.add(
+            LabInstrument(
+                name="NovaSeq synthetic 4401",
+                model="Synthetic sequencer",
+                serial_number=spec["parameters"]["instrument_serial"],
+                calibration_status="current",
+                calibration_due=dates["calibration_current"],
+                data_origin="synthetic",
+                created_by="seed-script",
+            )
+        )
+        changed = True
+        db.flush()
+    protocol = db.query(LabProtocol).filter(LabProtocol.code == SEQUENCING_CODE).first()
+    if protocol is None:
+        protocol = LabProtocol(
+            code=spec["code"],
+            title=spec["title"],
+            status="approved",
+            summary=spec["summary"],
+            data_origin="synthetic",
+            created_by="seed-script",
+        )
+        db.add(protocol)
+        db.flush()
+        version = LabProtocolVersion(
+            protocol_id=protocol.id,
+            version_label=spec["version"],
+            version_number=spec["version_number"],
+            status="approved",
+            parameters_json=spec["parameters"],
+            success_criteria_json=spec["criteria"],
+            sample_panel_json=spec["samples"],
+            expected_readouts_json=list(spec["readouts"]),
+            data_origin="synthetic",
+            created_by="seed-script",
+        )
+        db.add(version)
+        db.flush()
+        publish(db, protocol, entity_type="Protocol", label=protocol.code, document_id=None)
+        version_node = publish(db, version, entity_type="ProtocolVersion", label=f"{protocol.code} {version.version_label}", document_id=None)
+        link(db, version_node, db.get(GraphNode, protocol.graph_node_id), "VERSION_OF")
+        changed = True
+    for person in ("Priya Nair", "Sarah Chen"):
+        existing = (
+            db.query(LabTrainingRecord)
+            .filter(LabTrainingRecord.person_name == person, LabTrainingRecord.protocol_id == protocol.id)
+            .first()
+        )
+        if existing is None:
+            db.add(
+                LabTrainingRecord(
+                    person_name=person,
+                    protocol_id=protocol.id,
+                    qualified=True,
+                    gap_reason=None,
+                    data_origin="synthetic",
+                    created_by="seed-script",
+                )
+            )
+            changed = True
+    if changed:
+        db.flush()
+    return changed
