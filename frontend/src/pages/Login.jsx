@@ -93,8 +93,8 @@ export default function Login() {
           <h1 className="text-5xl font-semibold leading-tight text-white" style={{ letterSpacing: '-0.025em' }}>
             SciNova
           </h1>
-          <p className="mt-4 max-w-xs text-[15px] leading-relaxed text-white/50">
-            Drug Discovery Command Center
+          <p className="mt-4 max-w-sm text-[15px] leading-relaxed text-white/50">
+            TCS AI Native Drug Discovery Accelerator
           </p>
         </div>
       </section>
