@@ -216,3 +216,28 @@ body {
     linear-gradient(90deg, rgba(100,116,139,0.04) 1px, transparent 1px);
   background-size: 56px 56px;
 }
+
+@keyframes mol-drift {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(12px, -16px, 0); }
+}
+
+@keyframes mol-drift-alt {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(-14px, 10px, 0) rotate(6deg); }
+}
+
+.mol-drift {
+  animation: mol-drift 32s ease-in-out infinite;
+}
+
+.mol-drift-alt {
+  animation: mol-drift-alt 40s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mol-drift,
+  .mol-drift-alt {
+    animation: none;
+  }
+}
