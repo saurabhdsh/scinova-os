@@ -12,8 +12,12 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-# TEMP DEMO: delete this file and _glp1r_snapshot_rows after the demo.
-_GLP1R_SNAPSHOT = Path(__file__).with_name("glp1r_chembl_snapshot.json")
+# TEMP DEMO: delete these files and _snapshot_rows after the demo.
+_SNAPSHOTS = {
+    "P43220": Path(__file__).with_name("glp1r_chembl_snapshot.json"),
+    "P00533": Path(__file__).with_name("egfr_chembl_snapshot.json"),
+}
+_SNAPSHOT_GENES = {"GLP1R": "P43220", "EGFR": "P00533"}
 
 # Demo JAK2 inhibitors when ChEMBL is unreachable
 DEMO_ACTIVES: dict[str, list[dict[str, Any]]] = {
@@ -205,16 +209,18 @@ def fetch_actives_status(
         return [], "unavailable"
 
 
-def _is_glp1r(uniprot_id: str | None, gene_symbol: str | None) -> bool:
+def _snapshot_path(uniprot_id: str | None, gene_symbol: str | None) -> Path | None:
+    uid = (uniprot_id or "").upper()
     gene = re.sub(r"[\s\-]", "", gene_symbol or "").upper()
-    return (uniprot_id or "").upper() == "P43220" or gene == "GLP1R"
+    path = _SNAPSHOTS.get(uid) or _SNAPSHOTS.get(_SNAPSHOT_GENES.get(gene, ""))
+    if path and path.is_file():
+        return path
+    return None
 
 
-def _glp1r_snapshot_rows(limit: int, modality: str | None) -> tuple[list[dict[str, Any]], str | None]:
-    """Saved GLP1R activities. Used only when the live ChEMBL call does not respond."""
-    if not _GLP1R_SNAPSHOT.is_file():
-        return [], None
-    payload = json.loads(_GLP1R_SNAPSHOT.read_text())
+def _snapshot_rows(path: Path, limit: int, modality: str | None) -> tuple[list[dict[str, Any]], str | None, str]:
+    """Saved activities for one demo target. Used only when the live ChEMBL call does not respond."""
+    payload = json.loads(path.read_text())
     rows: list[dict[str, Any]] = []
     seen: set[str] = set()
     for raw in payload.get("rows") or []:
@@ -237,7 +243,8 @@ def _glp1r_snapshot_rows(limit: int, modality: str | None) -> tuple[list[dict[st
     order = {"biochemical": 0, "cellular pathway readout": 1, "peptide": 2, "nucleotide probe": 3}
     chosen.sort(key=lambda x: (order.get(x.get("relation"), 9), -(x.get("pchembl") or 0)))
     ligands = [row for row in chosen if row.get("relation") != "nucleotide probe"]
-    return ligands[:limit], payload.get("saved_at")
+    label = payload.get("gene_symbol") or payload.get("uniprot_id") or "this protein"
+    return ligands[:limit], payload.get("saved_at"), label
 
 
 def fetch_actives(uniprot_id: str, limit: int = 25) -> list[dict[str, Any]]:
@@ -267,9 +274,11 @@ def discover_known_actives(
     rows = [row for row in rows if row.get("relation") != "nucleotide probe"][:limit]
     source = "chembl"
     snapshot_saved_at = None
-    # TEMP DEMO: GLP1R only, and only after the live call fails. Delete with the snapshot file.
-    if not rows and _is_glp1r(uid, gene_symbol) and status in {"unavailable", "no_target"}:
-        snapshot_rows, snapshot_saved_at = _glp1r_snapshot_rows(limit, modality)
+    snapshot_label = None
+    # TEMP DEMO: GLP1R and EGFR only, and only after the live call fails. Delete with the snapshot files.
+    snapshot = _snapshot_path(uid, gene_symbol)
+    if not rows and snapshot and status in {"unavailable", "no_target"}:
+        snapshot_rows, snapshot_saved_at, snapshot_label = _snapshot_rows(snapshot, limit, modality)
         if snapshot_rows:
             rows = snapshot_rows
             source = "chembl_snapshot"
@@ -322,19 +331,22 @@ def discover_known_actives(
             narrative += " Inhibitor here means the assay text or standard type supports inhibition or binding, not agonism."
     elif rows and source == "chembl_snapshot":
         saved = snapshot_saved_at or "an earlier download"
+        shown = snapshot_label or label
         summary = (
-            f"ChEMBL did not respond for {label}. "
-            f"Showing {len(rows)} GLP1R activities saved from ChEMBL on {saved}."
+            f"ChEMBL did not respond for {shown}. "
+            f"Showing {len(rows)} {shown} activities saved from ChEMBL on {saved}."
         )
         narrative = (
             summary
-            + " These rows are the temporary GLP1R extract, not a live call. "
+            + f" These rows are the temporary {shown} extract, not a live call. "
             "A pChEMBL value is a standardized activity, not by itself proof of agonism or inhibition."
         )
         if modality == "agonist" and any(row.get("modality") == "agonist" for row in rows):
             narrative += " Rows were kept when the assay text indicated agonism."
         elif modality == "agonist":
             narrative += " No saved assay description explicitly marked these rows as agonists."
+        elif modality == "inhibitor":
+            narrative += " Inhibitor here means the assay text or standard type supports inhibition or binding, not agonism."
     elif rows and source == "demo_curated":
         summary = f"Demo mode returned {len(rows)} placeholder actives for {label}. These are not a live ChEMBL result."
         narrative = summary

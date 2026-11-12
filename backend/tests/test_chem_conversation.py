@@ -75,11 +75,14 @@ class ChemConversationTests(unittest.TestCase):
             return_value=([], "unavailable"),
         ):
             glp = discover_known_actives("P43220", "GLP1R", modality="agonist")
-            other = discover_known_actives("P00533", "EGFR", modality="agonist")
+            egfr = discover_known_actives("P00533", "EGFR", modality="inhibitor")
+            other = discover_known_actives("P01116", "KRAS", modality="inhibitor")
         self.assertEqual(glp["source"], "chembl_snapshot")
         self.assertTrue(glp["actives"])
         self.assertIn("saved from ChEMBL", glp["narrative"])
-        self.assertTrue(all(row["evidence"] == "measured" for row in glp["actives"]))
+        self.assertEqual(egfr["source"], "chembl_snapshot")
+        self.assertIn("EGFR", egfr["narrative"])
+        self.assertTrue(all(row["evidence"] == "measured" for row in egfr["actives"]))
         self.assertEqual(other["actives"], [])
         self.assertEqual(other["source"], "chembl")
 
