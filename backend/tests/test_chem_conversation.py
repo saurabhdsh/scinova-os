@@ -69,6 +69,20 @@ class ChemConversationTests(unittest.TestCase):
         ids = " ".join(row.get("chembl_id", "") for row in found["actives"])
         self.assertNotIn("CHEMBL4297610", ids)
 
+    def test_glp1r_snapshot_is_used_only_when_chembl_is_down(self):
+        with patch(
+            "app.services.chem.chembl_client.fetch_actives_status",
+            return_value=([], "unavailable"),
+        ):
+            glp = discover_known_actives("P43220", "GLP1R", modality="agonist")
+            other = discover_known_actives("P00533", "EGFR", modality="agonist")
+        self.assertEqual(glp["source"], "chembl_snapshot")
+        self.assertTrue(glp["actives"])
+        self.assertIn("saved from ChEMBL", glp["narrative"])
+        self.assertTrue(all(row["evidence"] == "measured" for row in glp["actives"]))
+        self.assertEqual(other["actives"], [])
+        self.assertEqual(other["source"], "chembl")
+
     def test_session_reopens_after_memory_is_cleared(self):
         result = run_chem_query("What is pChEMBL 7.10?")
         sid = result["session_id"]
