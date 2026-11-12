@@ -2,16 +2,24 @@
 
 from __future__ import annotations
 
+import json
 import re
 
-OUTPUT_STYLE_RULES = """
+_PRESENTATION_RULES = """
 Presentation rules (strict — follow for every text field):
 - Write like a senior pharma R&D consultant: polished, confident, decision-ready prose.
 - NEVER use markdown: no # headings, no ** bold, no backtick code fences, no markdown bullet syntax (- or *).
-- Use complete sentences and short paragraphs in "answer" and "summary" fields.
-- Put bullet-style content in dedicated JSON arrays (findings, key_findings, hypotheses, evidence_for, etc.).
 - Inline citations only as [1], [2], [Doc-N], or [PubMed-N] — no URLs in the narrative unless required.
 - Avoid filler phrases ("In conclusion", "It is important to note"). Be direct and evidence-led.
+"""
+
+OUTPUT_STYLE_RULES = _PRESENTATION_RULES + """
+- Use complete sentences and short paragraphs in "answer" and "summary" fields.
+- Put bullet-style content in dedicated JSON arrays (findings, key_findings, hypotheses, evidence_for, etc.).
+"""
+
+PROSE_STYLE_RULES = _PRESENTATION_RULES + """
+- Reply with plain sentences only. Do not return a JSON object, and do not use answer or summary fields.
 """
 
 PROSE_KEYS = frozenset({
@@ -31,6 +39,53 @@ def augment_system_prompt(system: str) -> str:
     if OUTPUT_STYLE_RULES.strip() in system:
         return system
     return f"{system.rstrip()}\n\n{OUTPUT_STYLE_RULES}"
+
+
+def augment_prose_prompt(system: str) -> str:
+    if PROSE_STYLE_RULES.strip() in system:
+        return system
+    return f"{system.rstrip()}\n\n{PROSE_STYLE_RULES}"
+
+
+def plain_reply(text: str) -> str:
+    """Turn a model reply into sentences, including when it came back as a JSON object."""
+    cleaned = polish_prose(text)
+    if not cleaned:
+        return ""
+    payload = _json_object(cleaned)
+    if isinstance(payload, dict):
+        for key in ("answer", "summary", "narrative"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return polish_prose(value)
+    answer = _json_string_field(cleaned, "answer") or _json_string_field(cleaned, "summary")
+    if answer:
+        return polish_prose(answer)
+    return cleaned
+
+
+def _json_object(text: str) -> dict | None:
+    stripped = text.strip()
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start < 0 or end <= start:
+        return None
+    try:
+        payload = json.loads(stripped[start:end + 1])
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _json_string_field(text: str, key: str) -> str | None:
+    match = re.search(rf'"{re.escape(key)}"\s*:\s*"((?:\\.|[^"\\])*)"', text, re.S)
+    if not match:
+        return None
+    try:
+        value = json.loads(f'"{match.group(1)}"')
+    except json.JSONDecodeError:
+        return None
+    return value.strip() or None
 
 
 def polish_prose(text: str) -> str:

@@ -12,7 +12,7 @@ import httpx
 
 from app.config import settings
 from app.services.bedrock_client import bedrock_credentials_available, get_bedrock_runtime_client
-from app.services.output_style import augment_system_prompt
+from app.services.output_style import augment_prose_prompt, augment_system_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +177,7 @@ class LLMService:
     ) -> str | None:
         use_model = model or self.model
         provider, base_url, api_key, api_model = _provider_for_model(use_model)
-        system_text = augment_system_prompt(system)
+        system_text = augment_prose_prompt(system)
 
         if provider == "bedrock":
             return self._bedrock_chat(system_text, user, api_model, temperature)

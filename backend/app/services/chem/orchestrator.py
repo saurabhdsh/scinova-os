@@ -267,7 +267,7 @@ def _chat(query: str, session: dict) -> dict[str, Any]:
     model_used = None
     try:
         from app.services.llm_service import llm_service
-        from app.services.output_style import polish_prose
+        from app.services.output_style import plain_reply
 
         model = _conversation_model()
         if model and llm_service.available:
@@ -295,7 +295,7 @@ def _chat(query: str, session: dict) -> dict[str, Any]:
                     reply = llm_service.chat(system, prompt, model=alternate, temperature=0.6)
                     if reply and str(reply).strip():
                         model_used = alternate
-            reply = polish_prose(str(reply or ""))
+            reply = plain_reply(str(reply or ""))
             called = bool(reply)
     except Exception:
         reply = None
@@ -689,7 +689,7 @@ def _answer_when_lookup_misses(query: str, session: dict[str, Any]) -> str | Non
     gene = extract_gene_symbol(query) or (session.get("target") or {}).get("gene_symbol") or "this protein"
     try:
         from app.services.llm_service import llm_service
-        from app.services.output_style import polish_prose
+        from app.services.output_style import plain_reply
 
         model = _conversation_model()
         if not model or not llm_service.available:
@@ -710,7 +710,7 @@ def _answer_when_lookup_misses(query: str, session: dict[str, Any]) -> str | Non
                 reply = llm_service.chat(
                     system, f"Scientist: {(query or '').strip()[:500]}", model=alternate, temperature=0.3
                 )
-        text = polish_prose(str(reply or ""))
+        text = plain_reply(str(reply or ""))
         if not text:
             return None
         return (
@@ -729,7 +729,7 @@ def _speak(query: str, result: dict[str, Any]) -> str | None:
         return None
     try:
         from app.services.llm_service import llm_service
-        from app.services.output_style import polish_prose
+        from app.services.output_style import plain_reply
 
         model = _conversation_model()
         if not model or not llm_service.available:
@@ -749,7 +749,7 @@ def _speak(query: str, result: dict[str, Any]) -> str | None:
             alternate = _alternate_conversation_model(model)
             if alternate:
                 reply = llm_service.chat(system, prompt, model=alternate, temperature=0.3)
-        reply = _drop_invented_caveats(narrative, polish_prose(str(reply or "")))
+        reply = _drop_invented_caveats(narrative, plain_reply(str(reply or "")))
         return reply[:1600] or None
     except Exception:
         return None
@@ -873,7 +873,7 @@ def _converse(query: str, session: dict, *, retrieved_now: bool = False) -> dict
     model_used = None
     try:
         from app.services.llm_service import llm_service
-        from app.services.output_style import polish_prose
+        from app.services.output_style import plain_reply
 
         model = _conversation_model()
         if model and llm_service.available:
@@ -902,7 +902,7 @@ def _converse(query: str, session: dict, *, retrieved_now: bool = False) -> dict
                     )
                     if reply and str(reply).strip():
                         model_used = alternate
-            reply = polish_prose(str(reply or ""))
+            reply = plain_reply(str(reply or ""))
             called = bool(reply)
     except Exception:
         reply = None
