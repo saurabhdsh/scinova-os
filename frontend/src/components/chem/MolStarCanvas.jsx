@@ -90,6 +90,8 @@ export default function MolStarCanvas({
           layout: { initial: { isExpanded: false, showControls: false } },
           components: { remoteState: 'none' },
           config: [
+            [PluginConfig.General.AllowMajorPerformanceCaveat, true],
+            [PluginConfig.General.PowerPreference, 'default'],
             [PluginConfig.Viewport.ShowExpand, false],
             [PluginConfig.Viewport.ShowControls, false],
             [PluginConfig.Viewport.ShowSettings, false],
