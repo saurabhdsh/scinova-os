@@ -158,6 +158,17 @@ Expect `SCINOVA_CLOUD=azure`, `DEFAULT_LLM_PROVIDER=openai`, and `BEDROCK_ENABLE
 
 Open the app at `http://20.127.186.132:5173`.
 
+With the domain pointed at this VM, open `https://scinova.solutions`. That needs the DNS A record, inbound TCP 80 and 443, and the Caddy service:
+
+```bash
+# GoDaddy DNS: A record @ = 20.127.186.132
+# NSG inbound: TCP 80 and TCP 443, Allow
+docker compose up -d caddy
+docker compose logs -f caddy
+```
+
+Caddy requests the certificate on its own. The first start fails until the A record resolves to this VM and port 80 is reachable from the internet. Port 5173 stays available.
+
 Demo logins are the same as local: `scientist` / `sci123`. Change them before anyone else uses the VM.
 
 ---

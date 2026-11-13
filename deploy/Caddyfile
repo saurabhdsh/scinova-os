@@ -1,0 +1,5 @@
+# HTTPS for scinova.solutions. Caddy obtains the certificate once port 80
+# and the DNS A record both reach this VM. Delete this file to remove it.
+scinova.solutions {
+	reverse_proxy frontend:5173
+}

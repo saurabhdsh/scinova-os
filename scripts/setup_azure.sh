@@ -183,7 +183,8 @@ Useful:
   docker compose logs -f backend
   ./scripts/preflight-azure.sh
 
-NSG on NIC rapid-build-dev-server999_z1 must allow TCP 22, 5173, and 8000.
+NSG on NIC rapid-build-dev-server999_z1 must allow TCP 22, 80, 443, 5173, and 8000.
+HTTPS for scinova.solutions is the Caddy service: docker compose up -d caddy
 Do not open Postgres, Neo4j, Redis, or Chroma.
 
 Standard_D2s_v3 has 8 GiB RAM, same class as the EC2 t3.large. If Neo4j is killed,
