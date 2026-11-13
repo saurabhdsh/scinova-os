@@ -105,8 +105,21 @@ export default function MolStarCanvas({
           spec,
           render: renderReact18,
         });
+        // A slow proxy can leave the first graphics context busy. Mol* then
+        // reports that WebGL is missing. Release it and try once more.
+        if (!disposed && hostRef.current?.textContent?.includes('WebGL does not seem to be available')) {
+          try { plugin.dispose(); } catch { /* already gone */ }
+          plugin = null;
+          await new Promise((resolve) => { window.setTimeout(resolve, 400); });
+          if (disposed || !hostRef.current) return;
+          plugin = await createPluginUI({
+            target: hostRef.current,
+            spec,
+            render: renderReact18,
+          });
+        }
         if (disposed) {
-          plugin.dispose();
+          plugin?.dispose();
           return;
         }
         pluginRef.current = plugin;

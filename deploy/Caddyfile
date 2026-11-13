@@ -9,6 +9,9 @@
 scinova.solutions {
 	# Browsers remember the old HTTP/3 offer for 30 days. A proxy that
 	# blocks that route then breaks the domain while the direct port works.
-	header Alt-Svc clear
+	header {
+		Alt-Svc clear
+		Cache-Control no-store
+	}
 	reverse_proxy frontend:5173
 }
